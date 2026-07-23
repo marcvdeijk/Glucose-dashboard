@@ -42,8 +42,12 @@ async function handleData(env) {
   const treatments = treatmentRows.results.map(r => ({ ts: r.timestamp.replace(' ', 'T'), bolus: r.bolus }));
 
   const logRows = await env.DB.prepare(
-    "SELECT timestamp, description, tags, amount, context, type FROM food_log ORDER BY timestamp"
+    "SELECT id, timestamp, description, tags, amount, context, type FROM food_log ORDER BY timestamp"
   ).all();
+
+  const foodLogRaw = logRows.results.map(r => ({
+    id: r.id, ts: r.timestamp.replace(' ', 'T'), desc: r.description, tags: r.tags, amount: r.amount, context: r.context, type: r.type || ''
+  }));
 
   const meals = [];
   const exercises = [];
@@ -65,7 +69,7 @@ async function handleData(env) {
 
   treatments.sort((a, b) => a.ts < b.ts ? -1 : 1);
 
-  return jsonOut({ glucose, treatments, meals, exercises });
+  return jsonOut({ glucose, treatments, meals, exercises, foodLogRaw });
 }
 
 // ---- /api/log: schrijven ----
@@ -92,6 +96,20 @@ async function handleLog(env, params) {
   ).bind(tsText, desc, tags, amount, context, type).run();
 
   return jsonOut({ status: 'ok', message: 'Gelogd: ' + tsText + ' - ' + desc, ts: tsText });
+}
+
+// ---- /api/delete: een eigen log-entry verwijderen ----
+
+async function handleDelete(env, params) {
+  const id = params.get('id');
+  if (!id) {
+    return jsonOut({ status: 'error', message: 'Geen id opgegeven.' });
+  }
+  const result = await env.DB.prepare('DELETE FROM food_log WHERE id = ?').bind(id).run();
+  if (!result.meta || result.meta.changes === 0) {
+    return jsonOut({ status: 'error', message: 'Niets gevonden om te verwijderen (mogelijk al weg).' });
+  }
+  return jsonOut({ status: 'ok', message: 'Verwijderd.', id });
 }
 
 // ---- Nightscout-sync (vervangt syncNightscout in Code.gs) ----
@@ -180,6 +198,13 @@ export default {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
       return handleLog(env, url.searchParams);
+    }
+
+    if (url.pathname === '/api/delete') {
+      if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      return handleDelete(env, url.searchParams);
     }
 
     if (url.pathname.startsWith('/api/')) {

@@ -142,6 +142,7 @@
           <th style="padding:6px 8px;">Aantal</th>
           <th style="padding:6px 8px;">Tags</th>
           <th style="padding:6px 8px;">Context</th>
+          <th style="padding:6px 8px;">Actie</th>
         </tr>
       </thead>
       <tbody id="rdBody"></tbody>
@@ -159,6 +160,7 @@ Chart.register(ChartDataLabels);
 // bepaalt wie er iets mee kan.
 const API_DATA = '/api/data';
 const API_LOG = '/api/log';
+const API_DELETE = '/api/delete';
 
 const urlParams = new URLSearchParams(window.location.search);
 const READ_KEY = urlParams.get('read') || '';
@@ -492,16 +494,15 @@ function renderRuweData(){
   const body = document.getElementById('rdBody');
   body.innerHTML = '';
 
-  let rows = [];
-  (DATA.meals||[]).forEach(m => rows.push({ ts:m.ts, type:m.type||'khd', desc:m.desc, amount:m.carbs, tags:m.tags, context:m.context }));
-  (DATA.exercises||[]).forEach(e => rows.push({ ts:e.ts, type:'beweging', desc:e.desc, amount:'', tags:e.tags, context:e.context }));
-  (DATA.treatments||[]).forEach(t => rows.push({ ts:t.ts, type:'bolus', desc:'Bolus (Nightscout/Zukka)', amount:t.bolus, tags:'', context:'' }));
+  let rows = (DATA.foodLogRaw||[]).map(r => ({
+    id: r.id, ts: r.ts, type: r.type || 'khd', desc: r.desc, amount: r.amount, tags: r.tags, context: r.context
+  }));
 
   if (filter !== 'alles') rows = rows.filter(r => r.type === filter);
   rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
 
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="6" style="padding:12px 8px; color:#b7b7b2;">Geen rijen voor dit filter.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" style="padding:12px 8px; color:#b7b7b2;">Geen rijen voor dit filter.</td></tr>';
     return;
   }
 
@@ -514,9 +515,32 @@ function renderRuweData(){
       '<td style="padding:6px 8px;">' + (r.desc||'') + '</td>' +
       '<td style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
       '<td style="padding:6px 8px; color:#b7b7b2;">' + (r.tags||'') + '</td>' +
-      '<td style="padding:6px 8px; color:#b7b7b2; max-width:320px;">' + (r.context||'') + '</td>';
+      '<td style="padding:6px 8px; color:#b7b7b2; max-width:320px;">' + (r.context||'') + '</td>' +
+      '<td style="padding:6px 8px; text-align:center;"><button onclick="deleteLogRow(' + r.id + ', this)" title="Verwijderen" style="background:transparent; border:none; cursor:pointer; font-size:16px; color:#e24b4a;">🗑️</button></td>';
     body.appendChild(tr);
   });
+}
+
+async function deleteLogRow(id, btn){
+  if (!confirm('Deze entry definitief verwijderen?')) return;
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const res = await fetch(API_DELETE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id));
+    const json = await res.json();
+    if (json.status === 'ok') {
+      await loadData();
+      renderRuweData();
+    } else {
+      alert('Mislukt: ' + (json.message || 'onbekende fout'));
+      btn.disabled = false;
+      btn.textContent = '🗑️';
+    }
+  } catch (err) {
+    alert('Mislukt: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = '🗑️';
+  }
 }
 
 document.getElementById('rdFilter').addEventListener('change', renderRuweData);
