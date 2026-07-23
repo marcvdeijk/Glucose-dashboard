@@ -222,6 +222,18 @@ export default {
       return handleLog(env, url.searchParams);
     }
 
+    if (url.pathname === '/api/admin/sync-check') {
+      if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      try {
+        const newRows = await syncNightscout(env);
+        return jsonOut({ status: 'ok', newRows });
+      } catch (err) {
+        return jsonOut({ status: 'error', message: String(err), stack: err.stack });
+      }
+    }
+
     if (url.pathname === '/api/update') {
       if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
