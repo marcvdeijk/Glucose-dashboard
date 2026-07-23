@@ -456,7 +456,11 @@ function render(){
         legend:{ display:false },
         datalabels:{ display:false },
         tooltip:{ yAlign:'bottom', caretPadding:14, caretSize:9, callbacks:{
-          title: items => tfmt(labels[items[0].dataIndex]),
+          title: items => {
+            const item = items[0];
+            const idx = item.dataset.label === 'Glucose' ? item.dataIndex : item.raw.x;
+            return tfmt(labels[idx]);
+          },
           label: item => {
             if (item.dataset.label==='Bolus') return 'Bolus ' + item.raw.bolus + ' E';
             if (item.dataset.label==='Maaltijd') return item.raw.desc + ' (' + item.raw.carbs + 'g khd)';
