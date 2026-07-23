@@ -99,21 +99,30 @@
     </div>
   </div>
 
-  <div class="grid" id="statGrid"></div>
-
   <div class="chartWrap">
     <canvas id="glucoseChart"></canvas>
   </div>
 
-  <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:12px 0;">
-    <button type="button" class="dayBtn" data-mode="day" onclick="selectMode('day', this)">Dag</button>
-    <button type="button" class="dayBtn dayBtnActive" data-mode="3" onclick="selectMode('3', this)">3u</button>
-    <button type="button" class="dayBtn" data-mode="6" onclick="selectMode('6', this)">6u</button>
-    <button type="button" class="dayBtn" data-mode="12" onclick="selectMode('12', this)">12u</button>
-    <button type="button" class="dayBtn" data-mode="24" onclick="selectMode('24', this)">24u</button>
-    <button type="button" class="dayBtn" data-mode="168" onclick="selectMode('168', this)">7d</button>
+  <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin:12px 0;">
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <button type="button" class="dayBtn dayBtnActive" data-kpi="today" onclick="selectKpiPeriod('today', this)">Vandaag</button>
+      <button type="button" class="dayBtn" data-kpi="24" onclick="selectKpiPeriod('24', this)">24u</button>
+      <button type="button" class="dayBtn" data-kpi="7" onclick="selectKpiPeriod('7', this)">7d</button>
+      <button type="button" class="dayBtn" data-kpi="30" onclick="selectKpiPeriod('30', this)">30d</button>
+      <button type="button" class="dayBtn" data-kpi="90" onclick="selectKpiPeriod('90', this)">90d</button>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <button type="button" class="dayBtn" data-mode="day" onclick="selectMode('day', this)">Dag</button>
+      <button type="button" class="dayBtn dayBtnActive" data-mode="3" onclick="selectMode('3', this)">3u</button>
+      <button type="button" class="dayBtn" data-mode="6" onclick="selectMode('6', this)">6u</button>
+      <button type="button" class="dayBtn" data-mode="12" onclick="selectMode('12', this)">12u</button>
+      <button type="button" class="dayBtn" data-mode="24" onclick="selectMode('24', this)">24u</button>
+      <button type="button" class="dayBtn" data-mode="168" onclick="selectMode('168', this)">7d</button>
+      <select id="daySelect" style="display:none;"></select>
+    </div>
   </div>
-  <select id="daySelect" style="display:none;"></select>
+
+  <div class="grid" id="statGrid"></div>
 
   <div style="background:rgba(44,44,46,0.6); border-radius:8px; padding:12px; margin:16px 0;">
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -271,6 +280,7 @@ async function loadData(){
     DATA = json;
     rebuildDaySelect();
     renderBgHeader();
+    renderStatGrid();
     render();
     if (document.getElementById('viewHoogtepunten').style.display !== 'none') renderHighlights();
   } catch (err) {
@@ -379,6 +389,45 @@ function renderBgHeader(){
   agoEl.textContent = minsAgo <= 0 ? 'Nu' : minsAgo + ' min geleden';
 }
 
+let currentKpiPeriod = 'today';
+
+function selectKpiPeriod(period, btn){
+  currentKpiPeriod = period;
+  document.querySelectorAll('.dayBtn[data-kpi]').forEach(b => b.classList.remove('dayBtnActive'));
+  btn.classList.add('dayBtnActive');
+  renderStatGrid();
+}
+
+function renderStatGrid(){
+  const statGrid = document.getElementById('statGrid');
+  let pts;
+  if (currentKpiPeriod === 'today'){
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    pts = DATA.glucose.filter(g => g.ts.startsWith(todayStr));
+  } else if (currentKpiPeriod === '24'){
+    const cutoff = new Date(Date.now() - 24*3600000);
+    pts = DATA.glucose.filter(g => new Date(g.ts) >= cutoff);
+  } else {
+    const days = parseInt(currentKpiPeriod);
+    const cutoff = new Date(Date.now() - days*24*3600000);
+    pts = DATA.glucose.filter(g => new Date(g.ts) >= cutoff);
+  }
+
+  const s = computeStats(pts);
+  statGrid.innerHTML = '';
+  if (!s){
+    statGrid.innerHTML = '<div class="empty">Nog geen glucosedata voor deze periode.</div>';
+    return;
+  }
+  [['Time in range', s.tir+'%'], ['Boven range', s.above+'%'], ['Onder range', s.below+'%'], ['Gemiddelde', s.avg+' mmol/L']].forEach(([label,val]) => {
+    const card = document.createElement('div');
+    card.className = 'stat';
+    card.innerHTML = '<div class="label">'+label+'</div><div class="value">'+val+'</div>';
+    statGrid.appendChild(card);
+  });
+}
+
 function render(){
   const latest = getLatest();
   const mode = currentMode;
@@ -401,22 +450,10 @@ function render(){
     useDayFmt = hours > 24;
   }
 
-  const s = computeStats(pts);
-  const statGrid = document.getElementById('statGrid');
-  statGrid.innerHTML = '';
-
-  if (!s){
-    statGrid.innerHTML = '<div class="empty">Nog geen glucosedata voor deze periode.</div>';
+  if (!pts.length){
     if (chart) chart.destroy();
     return;
   }
-
-  [['Time in range', s.tir+'%'], ['Boven range', s.above+'%'], ['Onder range', s.below+'%'], ['Gemiddelde', s.avg+' mmol/L']].forEach(([label,val]) => {
-    const card = document.createElement('div');
-    card.className = 'stat';
-    card.innerHTML = '<div class="label">'+label+'</div><div class="value">'+val+'</div>';
-    statGrid.appendChild(card);
-  });
 
   const labels = pts.map(p => p.ts);
   const values = pts.map(p => p.glucose);
