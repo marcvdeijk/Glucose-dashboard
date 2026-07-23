@@ -19,7 +19,7 @@
   .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:12px 0; }
   .stat { background:rgba(44,44,46,0.75); border-radius:6px; padding:6px 4px; text-align:center; }
   .stat .label { font-size:10px; color:#b7b7b2; }
-  .stat .value { font-size:15px; font-weight:500; margin-top:2px; }
+  .stat .value { font-size:14px; font-weight:500; margin-top:2px; }
   .empty { grid-column:1/-1; color:#b7b7b2; font-size:14px; padding:20px 0; text-align:center; }
   .chartWrap { position:relative; height:280px; }
   #loadError { color:#e24b4a; font-size:13px; margin-bottom:12px; }
@@ -81,7 +81,7 @@
     .grid { grid-template-columns:repeat(6,1fr); gap:8px; margin:16px 0; }
     .stat { padding:6px 4px; }
     .stat .label { font-size:11px; }
-    .stat .value { font-size:17px; }
+    .stat .value { font-size:16px; }
     .chartWrap { height:460px; }
   }
 </style>
@@ -130,7 +130,7 @@
 
   <div style="display:flex; align-items:center; gap:12px; margin:12px 0;">
     <div class="grid" id="statGrid" style="flex:1; margin:0;"></div>
-    <div id="rangePie" style="width:56px; height:56px; border-radius:50%; flex-shrink:0;"></div>
+    <div id="rangePie" style="width:68px; height:68px; border-radius:50%; flex-shrink:0;"></div>
   </div>
 
   <div style="background:rgba(44,44,46,0.6); border-radius:8px; padding:12px; margin:16px 0;">
@@ -139,9 +139,7 @@
       <input id="qlCarbs" type="number" placeholder="khd (optioneel)" style="flex:1; min-width:100px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
     </div>
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
-      <button type="button" class="dayBtn dayBtnActive" data-offset="0" onclick="selectDay('ql', this)">Vandaag</button>
-      <button type="button" class="dayBtn" data-offset="-1" onclick="selectDay('ql', this)">Gisteren</button>
-      <button type="button" class="dayBtn" data-offset="-2" onclick="selectDay('ql', this)">Eergisteren</button>
+      <input id="qlDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
       <input id="qlTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
       <button onclick="quickLog()" style="background:#d85a30; color:#341507; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
     </div>
@@ -155,9 +153,7 @@
       <input id="qbReason" type="text" placeholder="Reden (optioneel)" style="flex:2; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
     </div>
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
-      <button type="button" class="dayBtn dayBtnActive" data-offset="0" onclick="selectDay('qb', this)">Vandaag</button>
-      <button type="button" class="dayBtn" data-offset="-1" onclick="selectDay('qb', this)">Gisteren</button>
-      <button type="button" class="dayBtn" data-offset="-2" onclick="selectDay('qb', this)">Eergisteren</button>
+      <input id="qbDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
       <input id="qbTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
       <button onclick="quickBolus()" style="background:#7f77dd; color:#1a1730; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
     </div>
@@ -176,9 +172,7 @@
       <input id="qeDuration" type="number" placeholder="Duur (min, optioneel)" style="flex:1; min-width:120px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
     </div>
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
-      <button type="button" class="dayBtn dayBtnActive" data-offset="0" onclick="selectDay('qe', this)">Vandaag</button>
-      <button type="button" class="dayBtn" data-offset="-1" onclick="selectDay('qe', this)">Gisteren</button>
-      <button type="button" class="dayBtn" data-offset="-2" onclick="selectDay('qe', this)">Eergisteren</button>
+      <input id="qeDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
       <input id="qeTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
       <button onclick="quickExercise()" style="background:#7edf54; color:#173006; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
     </div>
@@ -564,22 +558,11 @@ function render(){
   });
 }
 
-const dayOffsets = { ql: 0, qb: 0, qe: 0 };
-function selectDay(section, btn){
-  const group = btn.parentElement;
-  Array.from(group.children).forEach(b => { if (b.classList && b.classList.contains('dayBtn')) b.classList.remove('dayBtnActive'); });
-  btn.classList.add('dayBtnActive');
-  dayOffsets[section] = parseInt(btn.dataset.offset);
-}
 function buildTs(section, timeInputId){
   const timeVal = document.getElementById(timeInputId).value;
-  if (!timeVal) return '';
-  const d = new Date();
-  d.setDate(d.getDate() + dayOffsets[section]);
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  return y + '-' + m + '-' + day + 'T' + timeVal;
+  const dateVal = document.getElementById(section + 'DateOnly').value;
+  if (!timeVal || !dateVal) return '';
+  return dateVal + 'T' + timeVal;
 }
 
 async function sendLog(url, statusEl){
@@ -646,14 +629,18 @@ function quickBolus(){
   document.getElementById('qbReason').value = '';
 }
 
-// Tijdvelden standaard vullen met huidig moment
+// Tijd- en datumvelden standaard vullen met huidig moment
 (function(){
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   const timeOnly = now.toISOString().slice(11,16);
+  const dateOnly = now.toISOString().slice(0,10);
   document.getElementById('qlTimeOnly').value = timeOnly;
   document.getElementById('qbTimeOnly').value = timeOnly;
   document.getElementById('qeTimeOnly').value = timeOnly;
+  document.getElementById('qlDateOnly').value = dateOnly;
+  document.getElementById('qbDateOnly').value = dateOnly;
+  document.getElementById('qeDateOnly').value = dateOnly;
 })();
 
 daySel.addEventListener('change', render);
