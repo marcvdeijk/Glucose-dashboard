@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glucose dashboard</title>
+<style>
+  html { background: linear-gradient(180deg, #6d7486, #0a0d13); background-attachment: fixed; }
+  body { color:#e4e4e0; font-family:-apple-system,BlinkMacSystemFont,sans-serif; margin:0; padding:16px; }
+  select, input, button { font-family: -apple-system,BlinkMacSystemFont,sans-serif; }
+  select, input { background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:15px; }
+  .dayBtn { background:#2c2c2e; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:13px; cursor:pointer; }
+  .dayBtn.dayBtnActive { background:#45454a; color:#e4e4e0; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:16px 0; }
+  .stat { background:rgba(44,44,46,0.75); border-radius:8px; padding:12px; text-align:center; }
+  .stat .label { font-size:11px; color:#b7b7b2; }
+  .stat .value { font-size:20px; font-weight:500; margin-top:4px; }
+  .empty { grid-column:1/-1; color:#b7b7b2; font-size:14px; padding:20px 0; text-align:center; }
+  .chartWrap { position:relative; height:280px; }
+  #loadError { color:#e24b4a; font-size:13px; margin-bottom:12px; }
+  @media (min-width:900px) {
+    body { max-width:1200px; margin:0 auto; padding:36px; }
+    select, input { font-size:15px; padding:12px 16px; }
+    .grid { gap:14px; margin:24px 0; }
+    .stat { padding:20px; }
+    .stat .label { font-size:14px; }
+    .stat .value { font-size:34px; }
+    .chartWrap { height:460px; }
+    #eventsBox { font-size:16px !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loadError"></div>
+
+<div style="display:flex; gap:8px; margin-bottom:20px; align-items:center;">
+  <button id="tabGrafiek" onclick="showTab('grafiek')" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 16px; cursor:pointer;">Grafiek</button>
+  <button id="tabHoogtepunten" onclick="showTab('hoogtepunten')" style="background:transparent; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:8px 16px; cursor:pointer;">Hoogtepunten</button>
+  <button id="refreshBtn" onclick="manualRefresh()" style="margin-left:auto; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 16px; cursor:pointer;">↻ Ververs</button>
+</div>
+
+<div id="viewGrafiek">
+  <select id="modeSelect">
+    <option value="day">Specifieke dag</option>
+    <option value="3">Laatste 3 uur</option>
+    <option value="6">Laatste 6 uur</option>
+    <option value="12">Laatste 12 uur</option>
+    <option value="24">Laatste 24 uur</option>
+    <option value="168">Laatste 7 dagen</option>
+  </select>
+  <select id="daySelect"></select>
+
+  <div style="background:rgba(44,44,46,0.6); border-radius:8px; padding:12px; margin:16px 0;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input id="qlDesc" type="text" placeholder="Wat heb je gegeten?" style="flex:2; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <input id="qlCarbs" type="number" placeholder="khd (optioneel)" style="flex:1; min-width:100px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
+      <button type="button" class="dayBtn dayBtnActive" data-offset="0" onclick="selectDay('ql', this)">Vandaag</button>
+      <button type="button" class="dayBtn" data-offset="-1" onclick="selectDay('ql', this)">Gisteren</button>
+      <button type="button" class="dayBtn" data-offset="-2" onclick="selectDay('ql', this)">Eergisteren</button>
+      <input id="qlTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <button onclick="quickLog()" style="background:#d85a30; color:#341507; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+    </div>
+    <div id="qlStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
+  </div>
+
+  <div style="background:rgba(44,44,46,0.6); border-radius:8px; padding:12px; margin:16px 0;">
+    <div style="font-size:12px; color:#b7b7b2; margin-bottom:8px;">Bolus (zelf gemeld, niet uit Zukka)</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input id="qbUnits" type="number" placeholder="Eenheden (E)" style="flex:1; min-width:100px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <input id="qbReason" type="text" placeholder="Reden (optioneel)" style="flex:2; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
+      <button type="button" class="dayBtn dayBtnActive" data-offset="0" onclick="selectDay('qb', this)">Vandaag</button>
+      <button type="button" class="dayBtn" data-offset="-1" onclick="selectDay('qb', this)">Gisteren</button>
+      <button type="button" class="dayBtn" data-offset="-2" onclick="selectDay('qb', this)">Eergisteren</button>
+      <input id="qbTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <button onclick="quickBolus()" style="background:#7f77dd; color:#1a1730; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+    </div>
+    <div id="qbStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
+  </div>
+
+  <div style="background:rgba(44,44,46,0.6); border-radius:8px; padding:12px; margin:16px 0;">
+    <div style="font-size:12px; color:#b7b7b2; margin-bottom:8px;">Beweging</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <select id="qeType" style="flex:1; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+        <option value="Duursport">Duursport</option>
+        <option value="HIIT">HIIT</option>
+        <option value="Krachttraining">Krachttraining</option>
+      </select>
+      <input id="qeActivity" type="text" placeholder="Activiteit (bijv. hardlopen, boksen)" style="flex:2; min-width:160px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <input id="qeDuration" type="number" placeholder="Duur (min, optioneel)" style="flex:1; min-width:120px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
+      <button type="button" class="dayBtn dayBtnActive" data-offset="0" onclick="selectDay('qe', this)">Vandaag</button>
+      <button type="button" class="dayBtn" data-offset="-1" onclick="selectDay('qe', this)">Gisteren</button>
+      <button type="button" class="dayBtn" data-offset="-2" onclick="selectDay('qe', this)">Eergisteren</button>
+      <input id="qeTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <button onclick="quickExercise()" style="background:#7edf54; color:#173006; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+    </div>
+    <div id="qeStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
+  </div>
+
+  <div class="grid" id="statGrid"></div>
+
+  <div class="chartWrap">
+    <canvas id="glucoseChart"></canvas>
+  </div>
+
+  <div id="eventsBox" style="font-size:13px; color:#dedede; margin-top:14px;"></div>
+</div>
+
+<div id="viewHoogtepunten" style="display:none;">
+  <select id="hlPeriod">
+    <option value="7">Afgelopen 7 dagen</option>
+    <option value="30">Afgelopen 30 dagen</option>
+    <option value="9999">Alles</option>
+  </select>
+
+  <div class="grid" id="hlStatGrid" style="grid-template-columns:repeat(2,1fr);"></div>
+
+  <div id="hlDetail" style="margin-top:16px; font-size:14px; line-height:1.7;"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script>
+Chart.register(ChartDataLabels);
+
+// Vaste, publieke API-URL van de Apps Script backend. Niet geheim op zich -
+// de leessleutel/schrijfsleutel (hieronder uit de eigen pagina-URL gehaald)
+// bepaalt wie er iets mee kan.
+const EXEC_URL = 'https://script.google.com/macros/s/AKfycbzWmz1LEn224nwKHGV2duV5C6K-aFYI5aPafzUWmgQYVzU6ulavm2Eqlj3A2S2FGGKgsw/exec';
+
+const urlParams = new URLSearchParams(window.location.search);
+const READ_KEY = urlParams.get('read') || '';
+const WRITE_KEY = urlParams.get('write') || '';
+
+let DATA = { glucose: [], treatments: [], meals: [], exercises: [] };
+
+function getLatest(){
+  return DATA.glucose.length ? new Date(DATA.glucose[DATA.glucose.length-1].ts) : new Date();
+}
+
+function rebuildDaySelect(){
+  const days = [...new Set(DATA.glucose.map(g => g.ts.slice(0,10)))].sort();
+  const prevValue = daySel.value;
+  daySel.innerHTML = '';
+  days.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = new Date(d).toLocaleDateString('nl-NL', {weekday:'short', day:'numeric', month:'short'});
+    daySel.appendChild(opt);
+  });
+  if (days.indexOf(prevValue) !== -1) {
+    daySel.value = prevValue;
+  } else if (days.length) {
+    daySel.value = days[days.length-1];
+  }
+}
+
+async function loadData(){
+  const errBox = document.getElementById('loadError');
+  if (!READ_KEY) {
+    errBox.textContent = 'Geen leessleutel gevonden in de link. Gebruik je gebookmarkte link met ?read=... erin.';
+    return;
+  }
+  try {
+    const res = await fetch(EXEC_URL + '?key=' + encodeURIComponent(READ_KEY));
+    const json = await res.json();
+    if (json.status === 'error') {
+      errBox.textContent = json.message;
+      return;
+    }
+    errBox.textContent = '';
+    DATA = json;
+    rebuildDaySelect();
+    render();
+    if (document.getElementById('viewHoogtepunten').style.display !== 'none') renderHighlights();
+  } catch (err) {
+    errBox.textContent = 'Kon data niet ophalen: ' + err.message;
+  }
+}
+
+function manualRefresh(){
+  const btn = document.getElementById('refreshBtn');
+  btn.textContent = '↻ Ververst...';
+  loadData().finally(() => { btn.textContent = '↻ Ververs'; });
+}
+
+const daySel = document.getElementById('daySelect');
+const modeSel = document.getElementById('modeSelect');
+
+function fmtTime(ts){ return new Date(ts).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}); }
+function fmtDayTime(ts){ return new Date(ts).toLocaleDateString('nl-NL', {day:'numeric', month:'short'}) + ' ' + fmtTime(ts); }
+function zoneColor(v){ if (v < 3.9) return '#e24b4a'; if (v > 10.0) return '#efa000'; return '#5dcaa5'; }
+
+function computeStats(pts){
+  if (!pts.length) return null;
+  const vals = pts.map(p => p.glucose);
+  const n = vals.length;
+  const inRange = vals.filter(v => v >= 3.9 && v <= 10.0).length;
+  const below = vals.filter(v => v < 3.9).length;
+  const above = vals.filter(v => v > 10.0).length;
+  const avg = vals.reduce((a,b)=>a+b,0)/n;
+  let fastestRise = null, fastestFall = null;
+  for (let i=0;i<pts.length-1;i++){
+    const dtMin = (new Date(pts[i+1].ts) - new Date(pts[i].ts))/60000;
+    if (dtMin <= 0) continue;
+    const rate = (pts[i+1].glucose - pts[i].glucose) / dtMin * 60;
+    if (!fastestRise || rate > fastestRise.rate) fastestRise = {rate, from: pts[i].glucose, to: pts[i+1].glucose, t1: pts[i].ts, t2: pts[i+1].ts};
+    if (!fastestFall || rate < fastestFall.rate) fastestFall = {rate, from: pts[i].glucose, to: pts[i+1].glucose, t1: pts[i].ts, t2: pts[i+1].ts};
+  }
+  return {
+    tir: Math.round(1000*inRange/n)/10,
+    above: Math.round(1000*above/n)/10,
+    below: Math.round(1000*below/n)/10,
+    avg: Math.round(avg*10)/10,
+    fastestRise: fastestRise && fastestRise.rate > 0 ? fastestRise : null,
+    fastestFall: fastestFall && fastestFall.rate < 0 ? fastestFall : null
+  };
+}
+
+function hourStepFor(mode){
+  if (mode === 'day') return 3;
+  const h = parseInt(mode);
+  if (h <= 6) return 1;
+  if (h === 12) return 2;
+  if (h === 24) return 3;
+  return 24;
+}
+
+let chart;
+function render(){
+  const latest = getLatest();
+  const mode = modeSel.value;
+  daySel.style.display = mode === 'day' ? 'inline-block' : 'none';
+
+  let pts, treats, meals, exercises, useDayFmt;
+  if (mode === 'day'){
+    const day = daySel.value;
+    pts = DATA.glucose.filter(g => g.ts.startsWith(day));
+    treats = DATA.treatments.filter(t => t.ts.startsWith(day));
+    meals = DATA.meals.filter(m => m.ts.startsWith(day));
+    exercises = (DATA.exercises||[]).filter(x => x.ts.startsWith(day));
+    useDayFmt = false;
+  } else {
+    const hours = parseInt(mode);
+    const cutoff = new Date(latest.getTime() - hours*3600000);
+    pts = DATA.glucose.filter(g => new Date(g.ts) >= cutoff);
+    treats = DATA.treatments.filter(t => new Date(t.ts) >= cutoff);
+    meals = DATA.meals.filter(m => new Date(m.ts) >= cutoff);
+    exercises = (DATA.exercises||[]).filter(x => new Date(x.ts) >= cutoff);
+    useDayFmt = hours > 24;
+  }
+
+  const s = computeStats(pts);
+  const statGrid = document.getElementById('statGrid');
+  statGrid.innerHTML = '';
+  const box = document.getElementById('eventsBox');
+
+  if (!s){
+    statGrid.innerHTML = '<div class="empty">Nog geen glucosedata voor deze periode.</div>';
+    if (chart) chart.destroy();
+    box.innerHTML = '';
+    return;
+  }
+
+  [['Time in range', s.tir+'%'], ['Boven range', s.above+'%'], ['Onder range', s.below+'%'], ['Gemiddelde', s.avg+' mmol/L']].forEach(([label,val]) => {
+    const card = document.createElement('div');
+    card.className = 'stat';
+    card.innerHTML = '<div class="label">'+label+'</div><div class="value">'+val+'</div>';
+    statGrid.appendChild(card);
+  });
+
+  const labels = pts.map(p => p.ts);
+  const values = pts.map(p => p.glucose);
+  const pointColors = values.map(zoneColor);
+  const tfmt = useDayFmt ? fmtDayTime : fmtTime;
+
+  function nearest(list, ts){
+    if (!labels.length) return {x: 0, y: 6};
+    let best = 0, bestDiff = Infinity;
+    labels.forEach((l,i) => { const diff = Math.abs(new Date(l)-new Date(ts)); if (diff < bestDiff){ bestDiff = diff; best = i; } });
+    return {x: best, y: values[best]};
+  }
+  function clampY(v){ return Math.max(2.5, Math.min(19.5, v)); }
+  const bolusPts = treats.map(t => { const n = nearest(labels, t.ts); return Object.assign({}, n, {y: clampY(n.y - 1.0), bolus: t.bolus}); });
+  const mealPts = meals.map(m => { const n = nearest(labels, m.ts); return Object.assign({}, n, {y: clampY(n.y + 1.0), desc: m.desc, carbs: m.carbs}); });
+  const exercisePts = exercises.map(x => { const n = nearest(labels, x.ts); return Object.assign({}, n, {desc: x.desc}); });
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('glucoseChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label:'Glucose', data: values, borderColor:'#5dcaa5', borderWidth:2, pointRadius:0, pointHoverRadius:4, pointBackgroundColor: pointColors,
+          segment: { borderColor: c => zoneColor((c.p0.parsed.y+c.p1.parsed.y)/2) }, tension:0.2, order:2 },
+        { label:'Bolus', data: bolusPts, parsing:false, showLine:false, pointStyle:'triangle', pointRadius:10, pointBackgroundColor:'#7f77dd', pointBorderColor:'#7f77dd', order:1,
+          datalabels:{ display:true, color:'#ffffff', anchor:'end', align:'bottom', offset:16, font:{size:12, weight:'600'}, formatter: v => v.bolus + 'E' } },
+        { label:'Maaltijd', data: mealPts, parsing:false, showLine:false, pointStyle:'rectRot', pointRadius:10, pointBackgroundColor:'#d85a30', pointBorderColor:'#d85a30', order:1,
+          datalabels:{ display:true, color:'#ffffff', anchor:'end', align:'top', offset:2, font:{size:12, weight:'600'}, formatter: v => (v.carbs !== '' && v.carbs != null ? v.carbs + 'g' : '') } },
+        { label:'Beweging', data: exercisePts, parsing:false, showLine:false, pointStyle:'circle', pointRadius:10, pointBackgroundColor:'#7edf54', pointBorderColor:'#7edf54', order:1 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'nearest', intersect:false },
+      plugins:{
+        legend:{ display:false },
+        datalabels:{ display:false },
+        tooltip:{ yAlign:'bottom', caretPadding:14, caretSize:9, callbacks:{
+          title: items => tfmt(labels[items[0].dataIndex]),
+          label: item => {
+            if (item.dataset.label==='Bolus') return 'Bolus ' + item.raw.bolus + ' E';
+            if (item.dataset.label==='Maaltijd') return item.raw.desc + ' (' + item.raw.carbs + 'g khd)';
+            if (item.dataset.label==='Beweging') return item.raw.desc;
+            return item.formattedValue + ' mmol/L';
+          }
+        }}
+      },
+      scales:{
+        x:{
+          afterBuildTicks: axis => {
+            const step = hourStepFor(mode);
+            const ticks = [];
+            let lastBucket = null;
+            labels.forEach((l, i) => {
+              const d = new Date(l);
+              const bucket = Math.floor(d.getHours() / step) + '-' + d.toDateString();
+              if (bucket !== lastBucket) {
+                ticks.push({ value: i });
+                lastBucket = bucket;
+              }
+            });
+            axis.ticks = ticks;
+          },
+          ticks:{ color:'#c7c7c2', callback:(v)=>tfmt(labels[v]) },
+          grid:{ color:'#45454a' }
+        },
+        y:{ min:2, max:20, ticks:{ color:'#c7c7c2' }, grid:{ color:'#45454a' } }
+      }
+    }
+  });
+
+  let html = '';
+  if (s.fastestRise) html += '<div style="margin-bottom:6px;">Snelste stijging: '+s.fastestRise.from+' &rarr; '+s.fastestRise.to+' mmol/L tussen '+tfmt(s.fastestRise.t1)+' en '+tfmt(s.fastestRise.t2)+'</div>';
+  if (s.fastestFall) html += '<div>Snelste daling: '+s.fastestFall.from+' &rarr; '+s.fastestFall.to+' mmol/L tussen '+tfmt(s.fastestFall.t1)+' en '+tfmt(s.fastestFall.t2)+'</div>';
+  box.innerHTML = html;
+}
+
+const dayOffsets = { ql: 0, qb: 0, qe: 0 };
+function selectDay(section, btn){
+  const group = btn.parentElement;
+  Array.from(group.children).forEach(b => { if (b.classList && b.classList.contains('dayBtn')) b.classList.remove('dayBtnActive'); });
+  btn.classList.add('dayBtnActive');
+  dayOffsets[section] = parseInt(btn.dataset.offset);
+}
+function buildTs(section, timeInputId){
+  const timeVal = document.getElementById(timeInputId).value;
+  if (!timeVal) return '';
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffsets[section]);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y + '-' + m + '-' + day + 'T' + timeVal;
+}
+
+async function sendLog(url, statusEl){
+  statusEl.textContent = 'Bezig...';
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.status === 'ok') {
+      statusEl.textContent = json.message || 'Gelogd!';
+      loadData();
+    } else {
+      statusEl.textContent = 'Mislukt: ' + (json.message || 'onbekende fout');
+    }
+  } catch (err) {
+    statusEl.textContent = 'Mislukt: ' + err.message;
+  }
+}
+
+function quickLog(){
+  const desc = document.getElementById('qlDesc').value.trim();
+  const carbs = document.getElementById('qlCarbs').value.trim();
+  const ts = buildTs('ql', 'qlTimeOnly');
+  const status = document.getElementById('qlStatus');
+  if (!desc){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
+
+  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  sendLog(url, status);
+  document.getElementById('qlDesc').value = '';
+  document.getElementById('qlCarbs').value = '';
+}
+
+function quickExercise(){
+  const type = document.getElementById('qeType').value;
+  const activity = document.getElementById('qeActivity').value.trim();
+  const duration = document.getElementById('qeDuration').value.trim();
+  const ts = buildTs('qe', 'qeTimeOnly');
+  const status = document.getElementById('qeStatus');
+  if (!activity){ status.textContent = 'Vul de activiteit in.'; return; }
+
+  const desc = '[BEWEGING] ' + type + ' - ' + activity + (duration ? ' (' + duration + ' min)' : '');
+  const tagSlug = type.toLowerCase();
+  const tags = 'beweging; beweging-' + tagSlug;
+  const context = duration ? ('Duur: ' + duration + ' minuten.') : '';
+
+  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent(tags) + '&carbs=' + encodeURIComponent('0') + '&context=' + encodeURIComponent(context) + '&type=beweging' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  sendLog(url, status);
+  document.getElementById('qeActivity').value = '';
+  document.getElementById('qeDuration').value = '';
+}
+
+function quickBolus(){
+  const units = document.getElementById('qbUnits').value.trim();
+  const reason = document.getElementById('qbReason').value.trim();
+  const ts = buildTs('qb', 'qbTimeOnly');
+  const status = document.getElementById('qbStatus');
+  if (!units){ status.textContent = 'Vul het aantal eenheden in.'; return; }
+
+  const desc = 'Bolus ' + units + 'E (zelf gemeld)';
+  const context = '[ZELF GEMELD, NIET IN ZUKKA] ' + (reason || 'Geen reden opgegeven') + ' - controleer of dit ook in Zukka wordt gelogd om dubbele telling te voorkomen.';
+
+  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent('zelf-gemeld-bolus') + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  sendLog(url, status);
+  document.getElementById('qbUnits').value = '';
+  document.getElementById('qbReason').value = '';
+}
+
+// Tijdvelden standaard vullen met huidig moment
+(function(){
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  const timeOnly = now.toISOString().slice(11,16);
+  document.getElementById('qlTimeOnly').value = timeOnly;
+  document.getElementById('qbTimeOnly').value = timeOnly;
+  document.getElementById('qeTimeOnly').value = timeOnly;
+})();
+
+modeSel.addEventListener('change', render);
+daySel.addEventListener('change', render);
+
+function showTab(tab){
+  document.getElementById('viewGrafiek').style.display = tab === 'grafiek' ? 'block' : 'none';
+  document.getElementById('viewHoogtepunten').style.display = tab === 'hoogtepunten' ? 'block' : 'none';
+  document.getElementById('tabGrafiek').style.background = tab === 'grafiek' ? '#2c2c2e' : 'transparent';
+  document.getElementById('tabGrafiek').style.color = tab === 'grafiek' ? '#e4e4e0' : '#b7b7b2';
+  document.getElementById('tabHoogtepunten').style.background = tab === 'hoogtepunten' ? '#2c2c2e' : 'transparent';
+  document.getElementById('tabHoogtepunten').style.color = tab === 'hoogtepunten' ? '#e4e4e0' : '#b7b7b2';
+  if (tab === 'hoogtepunten') renderHighlights();
+}
+
+function findNearestMealBefore(ts){
+  const candidates = DATA.meals.filter(m => new Date(m.ts) <= new Date(ts) && String(m.desc).indexOf('[PLAN]') !== 0);
+  if (!candidates.length) return null;
+  candidates.sort((a,b) => new Date(b.ts) - new Date(a.ts));
+  return candidates[0];
+}
+
+function renderHighlights(){
+  const latest = getLatest();
+  const days = parseInt(document.getElementById('hlPeriod').value);
+  const cutoff = new Date(latest.getTime() - days*24*3600000);
+  const pts = DATA.glucose.filter(g => new Date(g.ts) >= cutoff).sort((a,b) => new Date(a.ts)-new Date(b.ts));
+
+  const grid = document.getElementById('hlStatGrid');
+  const detail = document.getElementById('hlDetail');
+  grid.innerHTML = '';
+  detail.innerHTML = '';
+
+  if (!pts.length){
+    grid.innerHTML = '<div class="empty">Nog geen data in deze periode.</div>';
+    return;
+  }
+
+  let longestStart = 0, longestEnd = 0, curStart = 0;
+  for (let i=0;i<pts.length;i++){
+    const inRange = pts[i].glucose >= 3.9 && pts[i].glucose <= 10.0;
+    if (inRange){
+      if (i===0 || !(pts[i-1].glucose >= 3.9 && pts[i-1].glucose <= 10.0)) curStart = i;
+      if (new Date(pts[i].ts) - new Date(pts[curStart].ts) > new Date(pts[longestEnd].ts) - new Date(pts[longestStart].ts)){
+        longestStart = curStart; longestEnd = i;
+      }
+    }
+  }
+  const streakMin = Math.round((new Date(pts[longestEnd].ts) - new Date(pts[longestStart].ts))/60000);
+  const streakH = Math.floor(streakMin/60), streakM = streakMin%60;
+  const mealBeforeStreak = findNearestMealBefore(pts[longestStart].ts);
+
+  let peakIdx = 0;
+  pts.forEach((p,i) => { if (p.glucose > pts[peakIdx].glucose) peakIdx = i; });
+  const mealBeforePeak = findNearestMealBefore(pts[peakIdx].ts);
+
+  [['Langste tijd in range', streakH+'u '+streakM+'m'], ['Grootste piek', pts[peakIdx].glucose+' mmol/L']].forEach(([label,val]) => {
+    const card = document.createElement('div');
+    card.className = 'stat';
+    card.innerHTML = '<div class="label">'+label+'</div><div class="value">'+val+'</div>';
+    grid.appendChild(card);
+  });
+
+  const tagStats = {};
+  DATA.meals.filter(m => new Date(m.ts) >= cutoff && String(m.desc).indexOf('[PLAN]') !== 0).forEach(m => {
+    const tags = String(m.tags||'').split(';').map(t=>t.trim()).filter(Boolean);
+    const after = pts.filter(p => new Date(p.ts) >= new Date(m.ts) && new Date(p.ts) <= new Date(new Date(m.ts).getTime()+3*3600000));
+    if (!after.length) return;
+    const peak = Math.max(...after.map(p=>p.glucose));
+    tags.forEach(t => {
+      if (!tagStats[t]) tagStats[t] = [];
+      tagStats[t].push(peak);
+    });
+  });
+  const tagAvgs = Object.keys(tagStats).map(t => ({ tag: t, avg: tagStats[t].reduce((a,b)=>a+b,0)/tagStats[t].length, n: tagStats[t].length }))
+    .filter(x => x.n >= 1).sort((a,b) => b.avg - a.avg);
+
+  let html = '<p><strong>Langste groene periode:</strong> '+streakH+'u '+streakM+'m, van '+fmtDayTime(pts[longestStart].ts)+' tot '+fmtDayTime(pts[longestEnd].ts)+'.';
+  html += mealBeforeStreak ? ' Voorafgaand gegeten: '+mealBeforeStreak.desc+' ('+mealBeforeStreak.carbs+'g khd).' : ' Geen maaltijd-log gevonden vlak ervoor.';
+  html += '</p>';
+  html += '<p><strong>Grootste uitschieter:</strong> '+pts[peakIdx].glucose+' mmol/L op '+fmtDayTime(pts[peakIdx].ts)+'.';
+  html += mealBeforePeak ? ' Dichtstbijzijnde maaltijd: '+mealBeforePeak.desc+' ('+mealBeforePeak.carbs+'g khd, '+fmtDayTime(mealBeforePeak.ts)+').' : ' Geen gekoppelde maaltijd gevonden.';
+  html += '</p>';
+  if (tagAvgs.length){
+    html += '<p><strong>Gemiddelde piek per tag (binnen 3u na eten):</strong><br>';
+    tagAvgs.slice(0,5).forEach(t => { html += t.tag + ': ' + t.avg.toFixed(1) + ' mmol/L (n='+t.n+')<br>'; });
+    html += '</p>';
+  }
+  detail.innerHTML = html;
+}
+
+document.getElementById('hlPeriod').addEventListener('change', renderHighlights);
+
+// Eerste keer data ophalen, en daarna elke minuut automatisch verversen
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
