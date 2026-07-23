@@ -34,9 +34,10 @@
 
 <div id="loadError"></div>
 
-<div style="display:flex; gap:8px; margin-bottom:20px; align-items:center;">
+<div style="display:flex; gap:8px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
   <button id="tabGrafiek" onclick="showTab('grafiek')" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 16px; cursor:pointer;">Grafiek</button>
   <button id="tabHoogtepunten" onclick="showTab('hoogtepunten')" style="background:transparent; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:8px 16px; cursor:pointer;">Hoogtepunten</button>
+  <button id="tabRuweData" onclick="showTab('ruwedata')" style="background:transparent; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:8px 16px; cursor:pointer;">Ruwe data</button>
   <button id="refreshBtn" onclick="manualRefresh()" style="margin-left:auto; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 16px; cursor:pointer;">↻ Ververs</button>
 </div>
 
@@ -124,6 +125,30 @@
   <div id="hlDetail" style="margin-top:16px; font-size:14px; line-height:1.7;"></div>
 </div>
 
+<div id="viewRuweData" style="display:none;">
+  <select id="rdFilter">
+    <option value="alles">Alles</option>
+    <option value="khd">Alleen khd</option>
+    <option value="bolus">Alleen bolus</option>
+    <option value="beweging">Alleen beweging</option>
+  </select>
+  <div style="overflow-x:auto; margin-top:12px;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr style="text-align:left; border-bottom:1px solid #45454a; color:#b7b7b2;">
+          <th style="padding:6px 8px;">Tijd</th>
+          <th style="padding:6px 8px;">Type</th>
+          <th style="padding:6px 8px;">Beschrijving</th>
+          <th style="padding:6px 8px;">Aantal</th>
+          <th style="padding:6px 8px;">Tags</th>
+          <th style="padding:6px 8px;">Context</th>
+        </tr>
+      </thead>
+      <tbody id="rdBody"></tbody>
+    </table>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script>
@@ -132,7 +157,8 @@ Chart.register(ChartDataLabels);
 // Vaste, publieke API-URL van de Apps Script backend. Niet geheim op zich -
 // de leessleutel/schrijfsleutel (hieronder uit de eigen pagina-URL gehaald)
 // bepaalt wie er iets mee kan.
-const EXEC_URL = 'https://script.google.com/macros/s/AKfycbzWmz1LEn224nwKHGV2duV5C6K-aFYI5aPafzUWmgQYVzU6ulavm2Eqlj3A2S2FGGKgsw/exec';
+const API_DATA = '/api/data';
+const API_LOG = '/api/log';
 
 const urlParams = new URLSearchParams(window.location.search);
 const READ_KEY = urlParams.get('read') || '';
@@ -168,7 +194,7 @@ async function loadData(){
     return;
   }
   try {
-    const res = await fetch(EXEC_URL + '?key=' + encodeURIComponent(READ_KEY));
+    const res = await fetch(API_DATA + '?key=' + encodeURIComponent(READ_KEY));
     const json = await res.json();
     if (json.status === 'error') {
       errBox.textContent = json.message;
@@ -393,7 +419,7 @@ function quickLog(){
   const status = document.getElementById('qlStatus');
   if (!desc){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
 
-  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   sendLog(url, status);
   document.getElementById('qlDesc').value = '';
   document.getElementById('qlCarbs').value = '';
@@ -412,7 +438,7 @@ function quickExercise(){
   const tags = 'beweging; beweging-' + tagSlug;
   const context = duration ? ('Duur: ' + duration + ' minuten.') : '';
 
-  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent(tags) + '&carbs=' + encodeURIComponent('0') + '&context=' + encodeURIComponent(context) + '&type=beweging' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent(tags) + '&carbs=' + encodeURIComponent('0') + '&context=' + encodeURIComponent(context) + '&type=beweging' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   sendLog(url, status);
   document.getElementById('qeActivity').value = '';
   document.getElementById('qeDuration').value = '';
@@ -428,7 +454,7 @@ function quickBolus(){
   const desc = 'Bolus ' + units + 'E (zelf gemeld)';
   const context = '[ZELF GEMELD, NIET IN ZUKKA] ' + (reason || 'Geen reden opgegeven') + ' - controleer of dit ook in Zukka wordt gelogd om dubbele telling te voorkomen.';
 
-  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent('zelf-gemeld-bolus') + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent('zelf-gemeld-bolus') + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   sendLog(url, status);
   document.getElementById('qbUnits').value = '';
   document.getElementById('qbReason').value = '';
@@ -450,12 +476,50 @@ daySel.addEventListener('change', render);
 function showTab(tab){
   document.getElementById('viewGrafiek').style.display = tab === 'grafiek' ? 'block' : 'none';
   document.getElementById('viewHoogtepunten').style.display = tab === 'hoogtepunten' ? 'block' : 'none';
+  document.getElementById('viewRuweData').style.display = tab === 'ruwedata' ? 'block' : 'none';
   document.getElementById('tabGrafiek').style.background = tab === 'grafiek' ? '#2c2c2e' : 'transparent';
   document.getElementById('tabGrafiek').style.color = tab === 'grafiek' ? '#e4e4e0' : '#b7b7b2';
   document.getElementById('tabHoogtepunten').style.background = tab === 'hoogtepunten' ? '#2c2c2e' : 'transparent';
   document.getElementById('tabHoogtepunten').style.color = tab === 'hoogtepunten' ? '#e4e4e0' : '#b7b7b2';
+  document.getElementById('tabRuweData').style.background = tab === 'ruwedata' ? '#2c2c2e' : 'transparent';
+  document.getElementById('tabRuweData').style.color = tab === 'ruwedata' ? '#e4e4e0' : '#b7b7b2';
   if (tab === 'hoogtepunten') renderHighlights();
+  if (tab === 'ruwedata') renderRuweData();
 }
+
+function renderRuweData(){
+  const filter = document.getElementById('rdFilter').value;
+  const body = document.getElementById('rdBody');
+  body.innerHTML = '';
+
+  let rows = [];
+  (DATA.meals||[]).forEach(m => rows.push({ ts:m.ts, type:m.type||'khd', desc:m.desc, amount:m.carbs, tags:m.tags, context:m.context }));
+  (DATA.exercises||[]).forEach(e => rows.push({ ts:e.ts, type:'beweging', desc:e.desc, amount:'', tags:e.tags, context:e.context }));
+  (DATA.treatments||[]).forEach(t => rows.push({ ts:t.ts, type:'bolus', desc:'Bolus (Nightscout/Zukka)', amount:t.bolus, tags:'', context:'' }));
+
+  if (filter !== 'alles') rows = rows.filter(r => r.type === filter);
+  rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
+
+  if (!rows.length){
+    body.innerHTML = '<tr><td colspan="6" style="padding:12px 8px; color:#b7b7b2;">Geen rijen voor dit filter.</td></tr>';
+    return;
+  }
+
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #2c2c2e';
+    tr.innerHTML =
+      '<td style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
+      '<td style="padding:6px 8px;">' + r.type + '</td>' +
+      '<td style="padding:6px 8px;">' + (r.desc||'') + '</td>' +
+      '<td style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
+      '<td style="padding:6px 8px; color:#b7b7b2;">' + (r.tags||'') + '</td>' +
+      '<td style="padding:6px 8px; color:#b7b7b2; max-width:320px;">' + (r.context||'') + '</td>';
+    body.appendChild(tr);
+  });
+}
+
+document.getElementById('rdFilter').addEventListener('change', renderRuweData);
 
 function findNearestMealBefore(ts){
   const candidates = DATA.meals.filter(m => new Date(m.ts) <= new Date(ts) && String(m.desc).indexOf('[PLAN]') !== 0);
