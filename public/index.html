@@ -18,6 +18,41 @@
   .empty { grid-column:1/-1; color:#b7b7b2; font-size:14px; padding:20px 0; text-align:center; }
   .chartWrap { position:relative; height:280px; }
   #loadError { color:#e24b4a; font-size:13px; margin-bottom:12px; }
+  @media (max-width:899px) {
+    #viewRuweData table, #viewRuweData thead, #viewRuweData tbody, #viewRuweData tr, #viewRuweData th, #viewRuweData td {
+      display: block;
+      width: auto !important;
+    }
+    #viewRuweData colgroup { display: none; }
+    #viewRuweData thead tr { display: none; }
+    #viewRuweData tbody tr {
+      border: 1px solid #2c2c2e;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      padding: 8px;
+      background: rgba(44,44,46,0.4);
+    }
+    #viewRuweData td {
+      white-space: normal !important;
+      padding: 4px 4px !important;
+      border: none !important;
+    }
+    #viewRuweData td[data-label]:before {
+      content: attr(data-label);
+      display: block;
+      font-size: 11px;
+      color: #b7b7b2;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    #viewRuweData td.rd-actions {
+      display: flex;
+      gap: 8px;
+    }
+    #viewRuweData td.rd-actions:before {
+      display: none;
+    }
+  }
   @media (min-width:900px) {
     body { max-width:1200px; margin:0 auto; padding:36px; }
     select, input { font-size:15px; padding:12px 16px; }
@@ -534,13 +569,13 @@ function renderRuweData(){
     tr.id = 'rdRow-' + r.id;
     tr.style.borderBottom = '1px solid #2c2c2e';
     tr.innerHTML =
-      '<td style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
-      '<td class="rd-desc" style="padding:6px 8px; word-wrap:break-word;">' + (r.desc||'') + '</td>' +
-      '<td style="padding:6px 8px;">' + r.type + '</td>' +
-      '<td class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
-      '<td class="rd-tags" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.tags||'') + '</td>' +
-      '<td class="rd-context" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.context||'') + '</td>' +
-      '<td class="rd-actions" style="padding:6px 8px; white-space:nowrap;">' +
+      '<td data-label="Tijd" style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
+      '<td data-label="Beschrijving" class="rd-desc" style="padding:6px 8px; word-wrap:break-word;">' + (r.desc||'') + '</td>' +
+      '<td data-label="Type" style="padding:6px 8px;">' + r.type + '</td>' +
+      '<td data-label="Aantal" class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
+      '<td data-label="Tags" class="rd-tags" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.tags||'') + '</td>' +
+      '<td data-label="Context" class="rd-context" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.context||'') + '</td>' +
+      '<td data-label="Actie" class="rd-actions" style="padding:6px 8px; white-space:nowrap;">' +
         '<button onclick="editLogRow(' + r.id + ')" title="Bewerken" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_EDIT + '</button>' +
         '<button onclick="deleteLogRow(' + r.id + ', this)" title="Verwijderen" style="background:transparent; border:none; cursor:pointer; color:#e24b4a; padding:2px 4px;">' + ICON_TRASH + '</button>' +
       '</td>';
