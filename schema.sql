@@ -21,3 +21,10 @@ CREATE TABLE IF NOT EXISTS food_log (
   type TEXT                 -- 'khd', 'bolus', of 'beweging'
 );
 CREATE INDEX IF NOT EXISTS idx_food_log_timestamp ON food_log(timestamp);
+
+-- Simpele key-value tabel: vervangt wat vroeger in Apps Script's Scripteigenschappen zat
+-- (bv. LAST_SYNC_ISO voor de Nightscout-sync, en een rate-limit-timestamp)
+CREATE TABLE IF NOT EXISTS kv_state (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);

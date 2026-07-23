@@ -19,5 +19,8 @@
       "database_name": "glucose-dashboard-db",
       "database_id": "0dcd6985-3012-4188-94da-de5d9751ccab"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
 }
