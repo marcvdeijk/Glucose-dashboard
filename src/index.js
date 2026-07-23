@@ -98,6 +98,28 @@ async function handleLog(env, params) {
   return jsonOut({ status: 'ok', message: 'Gelogd: ' + tsText + ' - ' + desc, ts: tsText });
 }
 
+// ---- /api/update: een eigen log-entry bewerken ----
+
+async function handleUpdate(env, params) {
+  const id = params.get('id');
+  if (!id) {
+    return jsonOut({ status: 'error', message: 'Geen id opgegeven.' });
+  }
+  const desc = params.get('desc') || '';
+  const tags = params.get('tags') || '';
+  const amount = params.get('amount') !== null && params.get('amount') !== '' ? Number(params.get('amount')) : null;
+  const context = params.get('context') || '';
+
+  const result = await env.DB.prepare(
+    'UPDATE food_log SET description = ?, tags = ?, amount = ?, context = ? WHERE id = ?'
+  ).bind(desc, tags, amount, context, id).run();
+
+  if (!result.meta || result.meta.changes === 0) {
+    return jsonOut({ status: 'error', message: 'Niets gevonden om bij te werken.' });
+  }
+  return jsonOut({ status: 'ok', message: 'Bijgewerkt.', id });
+}
+
 // ---- /api/delete: een eigen log-entry verwijderen ----
 
 async function handleDelete(env, params) {
@@ -198,6 +220,13 @@ export default {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
       return handleLog(env, url.searchParams);
+    }
+
+    if (url.pathname === '/api/update') {
+      if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      return handleUpdate(env, url.searchParams);
     }
 
     if (url.pathname === '/api/delete') {

@@ -161,6 +161,7 @@ Chart.register(ChartDataLabels);
 const API_DATA = '/api/data';
 const API_LOG = '/api/log';
 const API_DELETE = '/api/delete';
+const API_UPDATE = '/api/update';
 
 const urlParams = new URLSearchParams(window.location.search);
 const READ_KEY = urlParams.get('read') || '';
@@ -489,15 +490,23 @@ function showTab(tab){
   if (tab === 'ruwedata') renderRuweData();
 }
 
+const ICON_EDIT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
+const ICON_TRASH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+const ICON_SAVE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+const ICON_CANCEL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+let ruweRows = [];
+
 function renderRuweData(){
   const filter = document.getElementById('rdFilter').value;
   const body = document.getElementById('rdBody');
   body.innerHTML = '';
 
-  let rows = (DATA.foodLogRaw||[]).map(r => ({
+  ruweRows = (DATA.foodLogRaw||[]).map(r => ({
     id: r.id, ts: r.ts, type: r.type || 'khd', desc: r.desc, amount: r.amount, tags: r.tags, context: r.context
   }));
 
+  let rows = ruweRows;
   if (filter !== 'alles') rows = rows.filter(r => r.type === filter);
   rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
 
@@ -508,23 +517,63 @@ function renderRuweData(){
 
   rows.forEach(r => {
     const tr = document.createElement('tr');
+    tr.id = 'rdRow-' + r.id;
     tr.style.borderBottom = '1px solid #2c2c2e';
     tr.innerHTML =
       '<td style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
       '<td style="padding:6px 8px;">' + r.type + '</td>' +
-      '<td style="padding:6px 8px;">' + (r.desc||'') + '</td>' +
-      '<td style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
-      '<td style="padding:6px 8px; color:#b7b7b2;">' + (r.tags||'') + '</td>' +
-      '<td style="padding:6px 8px; color:#b7b7b2; max-width:320px;">' + (r.context||'') + '</td>' +
-      '<td style="padding:6px 8px; text-align:center;"><button onclick="deleteLogRow(' + r.id + ', this)" title="Verwijderen" style="background:transparent; border:none; cursor:pointer; font-size:16px; color:#e24b4a;">🗑️</button></td>';
+      '<td class="rd-desc" style="padding:6px 8px;">' + (r.desc||'') + '</td>' +
+      '<td class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
+      '<td class="rd-tags" style="padding:6px 8px; color:#b7b7b2;">' + (r.tags||'') + '</td>' +
+      '<td class="rd-context" style="padding:6px 8px; color:#b7b7b2; max-width:320px;">' + (r.context||'') + '</td>' +
+      '<td class="rd-actions" style="padding:6px 8px; white-space:nowrap;">' +
+        '<button onclick="editLogRow(' + r.id + ')" title="Bewerken" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_EDIT + '</button>' +
+        '<button onclick="deleteLogRow(' + r.id + ', this)" title="Verwijderen" style="background:transparent; border:none; cursor:pointer; color:#e24b4a; padding:2px 4px;">' + ICON_TRASH + '</button>' +
+      '</td>';
     body.appendChild(tr);
   });
+}
+
+function editLogRow(id){
+  const row = ruweRows.find(r => r.id === id);
+  if (!row) return;
+  const tr = document.getElementById('rdRow-' + id);
+  if (!tr) return;
+
+  tr.querySelector('.rd-desc').innerHTML = '<input id="rdEditDesc-' + id + '" value="' + (row.desc||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
+  tr.querySelector('.rd-amount').innerHTML = '<input id="rdEditAmount-' + id + '" type="number" value="' + (row.amount != null ? row.amount : '') + '" style="width:70px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
+  tr.querySelector('.rd-tags').innerHTML = '<input id="rdEditTags-' + id + '" value="' + (row.tags||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
+  tr.querySelector('.rd-context').innerHTML = '<textarea id="rdEditContext-' + id + '" style="width:100%; min-height:60px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' + (row.context||'') + '</textarea>';
+  tr.querySelector('.rd-actions').innerHTML =
+    '<button onclick="saveLogRow(' + id + ')" title="Opslaan" style="background:transparent; border:none; cursor:pointer; color:#7edf54; padding:2px 4px;">' + ICON_SAVE + '</button>' +
+    '<button onclick="renderRuweData()" title="Annuleren" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_CANCEL + '</button>';
+}
+
+async function saveLogRow(id){
+  const desc = document.getElementById('rdEditDesc-' + id).value;
+  const amount = document.getElementById('rdEditAmount-' + id).value;
+  const tags = document.getElementById('rdEditTags-' + id).value;
+  const context = document.getElementById('rdEditContext-' + id).value;
+
+  try {
+    const res = await fetch(API_UPDATE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id) +
+      '&desc=' + encodeURIComponent(desc) + '&amount=' + encodeURIComponent(amount) +
+      '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context));
+    const json = await res.json();
+    if (json.status === 'ok') {
+      await loadData();
+      renderRuweData();
+    } else {
+      alert('Mislukt: ' + (json.message || 'onbekende fout'));
+    }
+  } catch (err) {
+    alert('Mislukt: ' + err.message);
+  }
 }
 
 async function deleteLogRow(id, btn){
   if (!confirm('Deze entry definitief verwijderen?')) return;
   btn.disabled = true;
-  btn.textContent = '...';
   try {
     const res = await fetch(API_DELETE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id));
     const json = await res.json();
@@ -534,12 +583,10 @@ async function deleteLogRow(id, btn){
     } else {
       alert('Mislukt: ' + (json.message || 'onbekende fout'));
       btn.disabled = false;
-      btn.textContent = '🗑️';
     }
   } catch (err) {
     alert('Mislukt: ' + err.message);
     btn.disabled = false;
-    btn.textContent = '🗑️';
   }
 }
 
