@@ -137,7 +137,7 @@ async function handleDelete(env, params) {
 // ---- Nightscout-sync (vervangt syncNightscout in Code.gs) ----
 
 async function syncNightscout(env) {
-  const NS_URL = env.NS_URL;
+  const NS_URL = (env.NS_URL || '').replace(/\/+$/, '');
   const NS_TOKEN = env.NS_TOKEN;
 
   const lastSync = await getState(env, 'last_sync_iso');
