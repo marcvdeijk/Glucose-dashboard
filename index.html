@@ -428,7 +428,7 @@ function quickBolus(){
   const desc = 'Bolus ' + units + 'E (zelf gemeld)';
   const context = '[ZELF GEMELD, NIET IN ZUKKA] ' + (reason || 'Geen reden opgegeven') + ' - controleer of dit ook in Zukka wordt gelogd om dubbele telling te voorkomen.';
 
-  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent('zelf-gemeld-bolus') + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const url = EXEC_URL + '?action=log&key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent('zelf-gemeld-bolus') + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   sendLog(url, status);
   document.getElementById('qbUnits').value = '';
   document.getElementById('qbReason').value = '';
