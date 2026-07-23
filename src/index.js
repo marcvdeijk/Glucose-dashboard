@@ -154,7 +154,20 @@ async function syncNightscout(env) {
   const treatUrl = NS_URL + '/api/v1/treatments.json?find[created_at][$gte]=' +
     encodeURIComponent(sinceIso) + '&count=500&token=' + NS_TOKEN;
 
-  const [entriesRes, treatRes] = await Promise.all([fetch(entriesUrl), fetch(treatUrl)]);
+  const fetchHeaders = {
+    'User-Agent': 'Mozilla/5.0 (compatible; GlucoseDashboardSync/1.0)',
+    'Accept': 'application/json'
+  };
+  const [entriesRes, treatRes] = await Promise.all([
+    fetch(entriesUrl, { headers: fetchHeaders }),
+    fetch(treatUrl, { headers: fetchHeaders })
+  ]);
+
+  const entriesCT = entriesRes.headers.get('content-type') || '';
+  if (!entriesCT.includes('json')) {
+    const body = await entriesRes.text();
+    throw new Error('Nightscout gaf geen JSON terug (status ' + entriesRes.status + '): ' + body.slice(0, 200));
+  }
   const entries = await entriesRes.json();
   const treatmentsData = await treatRes.json();
 
