@@ -19,13 +19,18 @@
   .chartWrap { position:relative; height:280px; }
   #loadError { color:#e24b4a; font-size:13px; margin-bottom:12px; }
   @media (max-width:899px) {
-    #viewRuweData table, #viewRuweData thead, #viewRuweData tbody, #viewRuweData tr, #viewRuweData th, #viewRuweData td {
+    #viewRuweData table, #viewRuweData thead, #viewRuweData tbody, #viewRuweData th {
       display: block;
       width: auto !important;
     }
     #viewRuweData colgroup { display: none; }
     #viewRuweData thead tr { display: none; }
     #viewRuweData tbody tr {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      column-gap: 16px;
+      row-gap: 2px;
       border: 1px solid #2c2c2e;
       border-radius: 8px;
       margin-bottom: 10px;
@@ -33,9 +38,11 @@
       background: rgba(44,44,46,0.4);
     }
     #viewRuweData td {
+      display: block;
       white-space: normal !important;
-      padding: 4px 4px !important;
+      padding: 2px 0 !important;
       border: none !important;
+      flex: 0 0 auto;
     }
     #viewRuweData td[data-label]:before {
       content: attr(data-label);
@@ -45,7 +52,15 @@
       font-weight: 600;
       margin-bottom: 2px;
     }
+    #viewRuweData td[data-label="Tijd"] { order: 1; }
+    #viewRuweData td[data-label="Type"] { order: 2; }
+    #viewRuweData td[data-label="Aantal"] { order: 3; }
+    #viewRuweData td[data-label="Beschrijving"] { order: 4; flex-basis: 100%; }
+    #viewRuweData td[data-label="Tags"] { order: 5; flex-basis: 100%; }
+    #viewRuweData td[data-label="Context"] { order: 6; flex-basis: 100%; }
     #viewRuweData td.rd-actions {
+      order: 7;
+      flex-basis: 100%;
       display: flex;
       gap: 8px;
     }
