@@ -26,7 +26,6 @@
     .stat .label { font-size:14px; }
     .stat .value { font-size:34px; }
     .chartWrap { height:460px; }
-    #eventsBox { font-size:16px !important; }
   }
 </style>
 </head>
@@ -42,6 +41,12 @@
 </div>
 
 <div id="viewGrafiek">
+  <div class="grid" id="statGrid"></div>
+
+  <div class="chartWrap">
+    <canvas id="glucoseChart"></canvas>
+  </div>
+
   <select id="modeSelect">
     <option value="day">Specifieke dag</option>
     <option value="3">Laatste 3 uur</option>
@@ -103,14 +108,6 @@
     </div>
     <div id="qeStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
   </div>
-
-  <div class="grid" id="statGrid"></div>
-
-  <div class="chartWrap">
-    <canvas id="glucoseChart"></canvas>
-  </div>
-
-  <div id="eventsBox" style="font-size:13px; color:#dedede; margin-top:14px;"></div>
 </div>
 
 <div id="viewHoogtepunten" style="display:none;">
@@ -271,6 +268,7 @@ function hourStepFor(mode){
 }
 
 let chart;
+let tickLabelMap = {};
 function render(){
   const latest = getLatest();
   const mode = modeSel.value;
@@ -297,12 +295,10 @@ function render(){
   const s = computeStats(pts);
   const statGrid = document.getElementById('statGrid');
   statGrid.innerHTML = '';
-  const box = document.getElementById('eventsBox');
 
   if (!s){
     statGrid.innerHTML = '<div class="empty">Nog geen glucosedata voor deze periode.</div>';
     if (chart) chart.destroy();
-    box.innerHTML = '';
     return;
   }
 
@@ -365,29 +361,38 @@ function render(){
           afterBuildTicks: axis => {
             const step = hourStepFor(mode);
             const ticks = [];
-            let lastBucket = null;
-            labels.forEach((l, i) => {
-              const d = new Date(l);
-              const bucket = Math.floor(d.getHours() / step) + '-' + d.toDateString();
-              if (bucket !== lastBucket) {
-                ticks.push({ value: i });
-                lastBucket = bucket;
+            tickLabelMap = {};
+            if (!labels.length) { axis.ticks = ticks; return; }
+
+            const firstTs = new Date(labels[0]);
+            const lastTs = new Date(labels[labels.length-1]);
+            let hourCursor = new Date(firstTs);
+            hourCursor.setMinutes(0,0,0);
+            if (hourCursor < firstTs) hourCursor = new Date(hourCursor.getTime() + 3600000);
+
+            while (hourCursor <= lastTs) {
+              if (hourCursor.getHours() % step === 0) {
+                let best = 0, bestDiff = Infinity;
+                labels.forEach((l,i) => {
+                  const diff = Math.abs(new Date(l) - hourCursor);
+                  if (diff < bestDiff) { bestDiff = diff; best = i; }
+                });
+                ticks.push({ value: best });
+                tickLabelMap[best] = useDayFmt
+                  ? fmtDayTime(hourCursor.toISOString())
+                  : String(hourCursor.getHours()).padStart(2,'0') + ':00';
               }
-            });
+              hourCursor = new Date(hourCursor.getTime() + 3600000);
+            }
             axis.ticks = ticks;
           },
-          ticks:{ color:'#c7c7c2', callback:(v)=>tfmt(labels[v]) },
+          ticks:{ color:'#c7c7c2', callback:(v)=> tickLabelMap[v] !== undefined ? tickLabelMap[v] : tfmt(labels[v]) },
           grid:{ color:'#45454a' }
         },
         y:{ min:2, max:20, ticks:{ color:'#c7c7c2' }, grid:{ color:'#45454a' } }
       }
     }
   });
-
-  let html = '';
-  if (s.fastestRise) html += '<div style="margin-bottom:6px;">Snelste stijging: '+s.fastestRise.from+' &rarr; '+s.fastestRise.to+' mmol/L tussen '+tfmt(s.fastestRise.t1)+' en '+tfmt(s.fastestRise.t2)+'</div>';
-  if (s.fastestFall) html += '<div>Snelste daling: '+s.fastestFall.from+' &rarr; '+s.fastestFall.to+' mmol/L tussen '+tfmt(s.fastestFall.t1)+' en '+tfmt(s.fastestFall.t2)+'</div>';
-  box.innerHTML = html;
 }
 
 const dayOffsets = { ql: 0, qb: 0, qe: 0 };
