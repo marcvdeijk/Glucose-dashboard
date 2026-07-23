@@ -133,12 +133,21 @@
     <option value="beweging">Alleen beweging</option>
   </select>
   <div style="overflow-x:auto; margin-top:12px;">
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <table style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">
+      <colgroup>
+        <col style="width:8%">
+        <col style="width:44%">
+        <col style="width:6%">
+        <col style="width:6%">
+        <col style="width:8%">
+        <col style="width:22%">
+        <col style="width:6%">
+      </colgroup>
       <thead>
         <tr style="text-align:left; border-bottom:1px solid #45454a; color:#b7b7b2;">
           <th style="padding:6px 8px;">Tijd</th>
-          <th style="padding:6px 8px;">Type</th>
           <th style="padding:6px 8px;">Beschrijving</th>
+          <th style="padding:6px 8px;">Type</th>
           <th style="padding:6px 8px;">Aantal</th>
           <th style="padding:6px 8px;">Tags</th>
           <th style="padding:6px 8px;">Context</th>
@@ -521,11 +530,11 @@ function renderRuweData(){
     tr.style.borderBottom = '1px solid #2c2c2e';
     tr.innerHTML =
       '<td style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
+      '<td class="rd-desc" style="padding:6px 8px; word-wrap:break-word;">' + (r.desc||'') + '</td>' +
       '<td style="padding:6px 8px;">' + r.type + '</td>' +
-      '<td class="rd-desc" style="padding:6px 8px;">' + (r.desc||'') + '</td>' +
       '<td class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
-      '<td class="rd-tags" style="padding:6px 8px; color:#b7b7b2;">' + (r.tags||'') + '</td>' +
-      '<td class="rd-context" style="padding:6px 8px; color:#b7b7b2; max-width:320px;">' + (r.context||'') + '</td>' +
+      '<td class="rd-tags" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.tags||'') + '</td>' +
+      '<td class="rd-context" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.context||'') + '</td>' +
       '<td class="rd-actions" style="padding:6px 8px; white-space:nowrap;">' +
         '<button onclick="editLogRow(' + r.id + ')" title="Bewerken" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_EDIT + '</button>' +
         '<button onclick="deleteLogRow(' + r.id + ', this)" title="Verwijderen" style="background:transparent; border:none; cursor:pointer; color:#e24b4a; padding:2px 4px;">' + ICON_TRASH + '</button>' +
