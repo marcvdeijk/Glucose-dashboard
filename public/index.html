@@ -58,6 +58,7 @@
       margin-bottom: 2px;
     }
     #viewRuweData td[data-label="Tijd"] { order: 1; }
+    .rd-who-col { display: none; }
     #viewRuweData td[data-label="Type"] { order: 2; }
     #viewRuweData td[data-label="Aantal"] { order: 3; }
     #viewRuweData td[data-label="Beschrijving"] { order: 4; flex-basis: 100%; }
@@ -207,11 +208,12 @@
     <table style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">
       <colgroup>
         <col style="width:7%">
-        <col style="width:21%">
+        <col style="width:20%">
         <col style="width:6%">
+        <col style="width:8%" class="rd-who-col">
         <col style="width:6%">
-        <col style="width:13%">
-        <col style="width:41%">
+        <col style="width:12%">
+        <col style="width:35%">
         <col style="width:6%">
       </colgroup>
       <thead>
@@ -219,6 +221,7 @@
           <th style="padding:6px 8px;">Tijd</th>
           <th style="padding:6px 8px;">Beschrijving</th>
           <th style="padding:6px 8px;">Type</th>
+          <th style="padding:6px 8px;" class="rd-who-col">Wie</th>
           <th style="padding:6px 8px;">Aantal</th>
           <th style="padding:6px 8px;">Tags</th>
           <th style="padding:6px 8px;">Context</th>
@@ -228,6 +231,10 @@
       <tbody id="rdBody"></tbody>
     </table>
   </div>
+  <label style="display:inline-flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#b7b7b2; cursor:pointer;">
+    <input type="checkbox" id="rdWhoToggle" onchange="toggleWhoColumn()">
+    Toon "Wie"-kolom
+  </label>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -607,9 +614,9 @@ function quickExercise(){
   const status = document.getElementById('qeStatus');
   if (!activity){ status.textContent = 'Vul de activiteit in.'; return; }
 
-  const desc = '[BEWEGING] ' + type + ' - ' + activity + (duration ? ' (' + duration + ' min)' : '');
+  const desc = activity;
   const tagSlug = type.toLowerCase();
-  const tags = 'beweging; beweging-' + tagSlug;
+  const tags = tagSlug;
   const context = duration ? ('Duur: ' + duration + ' minuten.') : '';
 
   const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent(tags) + '&carbs=' + encodeURIComponent('0') + '&context=' + encodeURIComponent(context) + '&type=beweging' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
@@ -625,10 +632,10 @@ function quickBolus(){
   const status = document.getElementById('qbStatus');
   if (!units){ status.textContent = 'Vul het aantal eenheden in.'; return; }
 
-  const desc = 'Bolus ' + units + 'E (zelf gemeld)';
-  const context = '[ZELF GEMELD, NIET IN ZUKKA] ' + (reason || 'Geen reden opgegeven') + ' - controleer of dit ook in Zukka wordt gelogd om dubbele telling te voorkomen.';
+  const desc = 'Bolus ' + units + 'E';
+  const context = reason || '';
 
-  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent('zelf-gemeld-bolus') + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   sendLog(url, status);
   document.getElementById('qbUnits').value = '';
   document.getElementById('qbReason').value = '';
@@ -657,6 +664,13 @@ function setNow(prefix){
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   document.getElementById(prefix + 'DateOnly').value = now.toISOString().slice(0,10);
   document.getElementById(prefix + 'TimeOnly').value = now.toISOString().slice(11,16);
+}
+
+function toggleWhoColumn(){
+  const show = document.getElementById('rdWhoToggle').checked;
+  document.querySelectorAll('.rd-who-col').forEach(el => {
+    el.style.display = show ? '' : 'none';
+  });
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -715,6 +729,7 @@ function renderRuweData(){
       '<td data-label="Tijd" class="rd-time" style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
       '<td data-label="Beschrijving" class="rd-desc" style="padding:6px 8px; word-wrap:break-word;">' + (r.desc||'') + '</td>' +
       '<td data-label="Type" class="rd-type" style="padding:6px 8px;">' + r.type + '</td>' +
+      '<td data-label="Wie" class="rd-who-col" style="padding:6px 8px;">' + (r.source||'Marc') + '</td>' +
       '<td data-label="Aantal" class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
       '<td data-label="Tags" class="rd-tags" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.tags||'') + '</td>' +
       '<td data-label="Context" class="rd-context" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.context||'') + '</td>' +
