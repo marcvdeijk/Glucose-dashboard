@@ -30,7 +30,7 @@ async function setState(env, key, value) {
 
 // ---- /api/data: lezen ----
 
-async function handleData(env) {
+async function getData(env) {
   const glucoseRows = await env.DB.prepare(
     "SELECT timestamp, glucose FROM nightscout_data WHERE type = 'glucose' ORDER BY timestamp"
   ).all();
@@ -69,7 +69,11 @@ async function handleData(env) {
 
   treatments.sort((a, b) => a.ts < b.ts ? -1 : 1);
 
-  return jsonOut({ glucose, treatments, meals, exercises, foodLogRaw });
+  return { glucose, treatments, meals, exercises, foodLogRaw };
+}
+
+async function handleData(env) {
+  return jsonOut(await getData(env));
 }
 
 // ---- /api/log: schrijven ----
@@ -105,14 +109,27 @@ async function handleUpdate(env, params) {
   if (!id) {
     return jsonOut({ status: 'error', message: 'Geen id opgegeven.' });
   }
-  const desc = params.get('desc') || '';
-  const tags = params.get('tags') || '';
-  const amount = params.get('amount') !== null && params.get('amount') !== '' ? Number(params.get('amount')) : null;
-  const context = params.get('context') || '';
+
+  const existing = await env.DB.prepare(
+    'SELECT description, tags, amount, context, timestamp, type FROM food_log WHERE id = ?'
+  ).bind(id).first();
+  if (!existing) {
+    return jsonOut({ status: 'error', message: 'Niets gevonden om bij te werken.' });
+  }
+
+  const desc = params.has('desc') ? (params.get('desc') || '') : existing.description;
+  const tags = params.has('tags') ? (params.get('tags') || '') : existing.tags;
+  const amount = params.has('amount')
+    ? (params.get('amount') !== '' ? Number(params.get('amount')) : null)
+    : existing.amount;
+  const context = params.has('context') ? (params.get('context') || '') : existing.context;
+  const type = params.has('type') && params.get('type') ? params.get('type') : existing.type;
+  const tsParam = params.get('ts');
+  const tsText = tsParam ? tsParam.replace('T', ' ') + ':00' : existing.timestamp;
 
   const result = await env.DB.prepare(
-    'UPDATE food_log SET description = ?, tags = ?, amount = ?, context = ? WHERE id = ?'
-  ).bind(desc, tags, amount, context, id).run();
+    'UPDATE food_log SET description = ?, tags = ?, amount = ?, context = ?, timestamp = ?, type = ? WHERE id = ?'
+  ).bind(desc, tags, amount, context, tsText, type, id).run();
 
   if (!result.meta || result.meta.changes === 0) {
     return jsonOut({ status: 'error', message: 'Niets gevonden om bij te werken.' });
@@ -215,6 +232,86 @@ async function syncNightscout(env) {
   return newRows.length;
 }
 
+// ---- /mcp: Model Context Protocol server (Fase 1 - alleen lezen) ----
+
+const MCP_TOOLS = [
+  {
+    name: 'get_glucose_data',
+    description: 'Haalt de actuele en historische diabetesdata op: glucosewaarden, insuline-bolussen, maaltijden (koolhydraten), beweging/sport, en de ruwe logboek-entries. Gebruik dit om vragen te beantwoorden over de huidige bloedglucose, recente maaltijden, laatste bolus, of trends over tijd.',
+    inputSchema: { type: 'object', properties: {}, required: [] }
+  }
+];
+
+function mcpResult(id, result) {
+  return jsonOut({ jsonrpc: '2.0', id, result });
+}
+
+function mcpError(id, code, message) {
+  return jsonOut({ jsonrpc: '2.0', id: id ?? null, error: { code, message } });
+}
+
+async function handleMcp(request, env) {
+  const url = new URL(request.url);
+  if (!env.READ_KEY || url.searchParams.get('key') !== env.READ_KEY) {
+    return jsonOut({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Toegang geweigerd.' } }, 403);
+  }
+
+  if (request.method === 'GET') {
+    // Geen server-initiated streaming ondersteund (stateless server) - conform MCP-spec.
+    return new Response('Method Not Allowed', { status: 405 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (err) {
+    return mcpError(null, -32700, 'Parse error');
+  }
+
+  const { id, method, params } = body;
+
+  // Notificaties (geen 'id') vereisen geen response-body.
+  if (method === 'notifications/initialized') {
+    return new Response(null, { status: 202 });
+  }
+
+  if (method === 'initialize') {
+    return mcpResult(id, {
+      protocolVersion: (params && params.protocolVersion) || '2024-11-05',
+      capabilities: { tools: {} },
+      serverInfo: { name: 'glucose-dashboard-mcp', version: '1.0.0' }
+    });
+  }
+
+  if (method === 'ping') {
+    return mcpResult(id, {});
+  }
+
+  if (method === 'tools/list') {
+    return mcpResult(id, { tools: MCP_TOOLS });
+  }
+
+  if (method === 'tools/call') {
+    const toolName = params && params.name;
+    if (toolName === 'get_glucose_data') {
+      try {
+        const data = await getData(env);
+        return mcpResult(id, {
+          content: [{ type: 'text', text: JSON.stringify(data) }]
+        });
+      } catch (err) {
+        return mcpResult(id, {
+          content: [{ type: 'text', text: 'Fout bij ophalen van data: ' + String(err) }],
+          isError: true
+        });
+      }
+    }
+    return mcpError(id, -32602, 'Onbekende tool: ' + toolName);
+  }
+
+  return mcpError(id, -32601, 'Methode niet gevonden: ' + method);
+}
+
 // ---- Router ----
 
 export default {
@@ -259,6 +356,10 @@ export default {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
       return handleDelete(env, url.searchParams);
+    }
+
+    if (url.pathname === '/mcp') {
+      return handleMcp(request, env);
     }
 
     if (url.pathname.startsWith('/api/')) {

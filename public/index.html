@@ -121,7 +121,6 @@
       <button type="button" class="dayBtn" data-kpi="90" onclick="selectKpiPeriod('90', this)">90d</button>
     </div>
     <div class="pillRow">
-      <button type="button" class="dayBtn" data-mode="day" onclick="selectMode('day', this)">Dag</button>
       <button type="button" class="dayBtn dayBtnActive" data-mode="3" onclick="selectMode('3', this)">3u</button>
       <button type="button" class="dayBtn" data-mode="6" onclick="selectMode('6', this)">6u</button>
       <button type="button" class="dayBtn" data-mode="12" onclick="selectMode('12', this)">12u</button>
@@ -143,6 +142,7 @@
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
       <input id="qlDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
       <input id="qlTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <button type="button" onclick="setNow('ql')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
       <button onclick="quickLog()" style="background:#d85a30; color:#341507; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
     </div>
     <div id="qlStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
@@ -157,6 +157,7 @@
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
       <input id="qbDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
       <input id="qbTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <button type="button" onclick="setNow('qb')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
       <button onclick="quickBolus()" style="background:#7f77dd; color:#1a1730; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
     </div>
     <div id="qbStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
@@ -176,6 +177,7 @@
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
       <input id="qeDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
       <input id="qeTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+      <button type="button" onclick="setNow('qe')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
       <button onclick="quickExercise()" style="background:#7edf54; color:#173006; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
     </div>
     <div id="qeStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
@@ -296,6 +298,7 @@ async function loadData(){
 function manualRefresh(){
   const btn = document.getElementById('refreshBtn');
   btn.style.opacity = '0.5';
+  refreshLogDefaults();
   loadData().finally(() => { btn.style.opacity = '1'; });
 }
 
@@ -631,8 +634,10 @@ function quickBolus(){
   document.getElementById('qbReason').value = '';
 }
 
-// Tijd- en datumvelden standaard vullen met huidig moment
-(function(){
+// Tijd- en datumvelden vullen met huidig moment. Wordt aangeroepen bij laden,
+// bij handmatige refresh, en automatisch zodra de app weer op de voorgrond
+// komt (PWA/homescreen-gebruik ververst anders nooit vanzelf).
+function refreshLogDefaults(){
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   const timeOnly = now.toISOString().slice(11,16);
@@ -643,7 +648,23 @@ function quickBolus(){
   document.getElementById('qlDateOnly').value = dateOnly;
   document.getElementById('qbDateOnly').value = dateOnly;
   document.getElementById('qeDateOnly').value = dateOnly;
-})();
+}
+refreshLogDefaults();
+
+// Zet alleen de datum/tijd van één specifieke logsectie (ql/qb/qe) naar nu
+function setNow(prefix){
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById(prefix + 'DateOnly').value = now.toISOString().slice(0,10);
+  document.getElementById(prefix + 'TimeOnly').value = now.toISOString().slice(11,16);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    refreshLogDefaults();
+    loadData();
+  }
+});
 
 daySel.addEventListener('change', render);
 
@@ -691,9 +712,9 @@ function renderRuweData(){
     tr.id = 'rdRow-' + r.id;
     tr.style.borderBottom = '1px solid #2c2c2e';
     tr.innerHTML =
-      '<td data-label="Tijd" style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
+      '<td data-label="Tijd" class="rd-time" style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
       '<td data-label="Beschrijving" class="rd-desc" style="padding:6px 8px; word-wrap:break-word;">' + (r.desc||'') + '</td>' +
-      '<td data-label="Type" style="padding:6px 8px;">' + r.type + '</td>' +
+      '<td data-label="Type" class="rd-type" style="padding:6px 8px;">' + r.type + '</td>' +
       '<td data-label="Aantal" class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
       '<td data-label="Tags" class="rd-tags" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.tags||'') + '</td>' +
       '<td data-label="Context" class="rd-context" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.context||'') + '</td>' +
@@ -711,6 +732,11 @@ function editLogRow(id){
   const tr = document.getElementById('rdRow-' + id);
   if (!tr) return;
 
+  const tsLocal = (row.ts||'').slice(0,16);
+  tr.querySelector('.rd-time').innerHTML = '<input id="rdEditTs-' + id + '" type="datetime-local" value="' + tsLocal + '" style="width:100%; min-width:150px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
+  tr.querySelector('.rd-type').innerHTML = '<select id="rdEditType-' + id + '" style="background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' +
+    ['khd','bolus','beweging'].map(t => '<option value="' + t + '"' + (t === row.type ? ' selected' : '') + '>' + t + '</option>').join('') +
+    '</select>';
   tr.querySelector('.rd-desc').innerHTML = '<input id="rdEditDesc-' + id + '" value="' + (row.desc||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
   tr.querySelector('.rd-amount').innerHTML = '<input id="rdEditAmount-' + id + '" type="number" value="' + (row.amount != null ? row.amount : '') + '" style="width:70px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
   tr.querySelector('.rd-tags').innerHTML = '<input id="rdEditTags-' + id + '" value="' + (row.tags||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
@@ -725,11 +751,14 @@ async function saveLogRow(id){
   const amount = document.getElementById('rdEditAmount-' + id).value;
   const tags = document.getElementById('rdEditTags-' + id).value;
   const context = document.getElementById('rdEditContext-' + id).value;
+  const ts = document.getElementById('rdEditTs-' + id).value;
+  const type = document.getElementById('rdEditType-' + id).value;
 
   try {
     const res = await fetch(API_UPDATE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id) +
       '&desc=' + encodeURIComponent(desc) + '&amount=' + encodeURIComponent(amount) +
-      '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context));
+      '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) +
+      '&ts=' + encodeURIComponent(ts) + '&type=' + encodeURIComponent(type));
     const json = await res.json();
     if (json.status === 'ok') {
       await loadData();
