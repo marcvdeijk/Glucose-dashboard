@@ -172,6 +172,10 @@
             <button type="button" onclick="setNow('qb')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
             <button onclick="quickBolus()" style="background:#7f77dd; color:#1a1730; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
           </div>
+          <div style="margin-top:8px;">
+            <div style="font-size:11px; color:#b7b7b2; margin-bottom:4px;">Koppel aan (laatste 8u, optioneel)</div>
+            <div id="qbLinkPicker" style="max-height:110px; overflow-y:auto; border:1px solid #45454a; border-radius:6px; padding:6px 8px; background:#1c1c1e;"></div>
+          </div>
           <div id="qbStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
         </div>
 
@@ -185,6 +189,10 @@
             <input id="qlTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
             <button type="button" onclick="setNow('ql')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
             <button onclick="quickLog()" style="background:#d85a30; color:#341507; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+          </div>
+          <div style="margin-top:8px;">
+            <div style="font-size:11px; color:#b7b7b2; margin-bottom:4px;">Koppel aan (laatste 8u, optioneel)</div>
+            <div id="qlLinkPicker" style="max-height:110px; overflow-y:auto; border:1px solid #45454a; border-radius:6px; padding:6px 8px; background:#1c1c1e;"></div>
           </div>
           <div id="qlStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
         </div>
@@ -204,6 +212,10 @@
             <input id="qeTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
             <button type="button" onclick="setNow('qe')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
             <button onclick="quickExercise()" style="background:#7edf54; color:#173006; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+          </div>
+          <div style="margin-top:8px;">
+            <div style="font-size:11px; color:#b7b7b2; margin-bottom:4px;">Koppel aan (laatste 8u, optioneel)</div>
+            <div id="qeLinkPicker" style="max-height:110px; overflow-y:auto; border:1px solid #45454a; border-radius:6px; padding:6px 8px; background:#1c1c1e;"></div>
           </div>
           <div id="qeStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
         </div>
@@ -308,6 +320,47 @@ function rebuildDaySelect(){
   }
 }
 
+function getCheckedLinkIds(containerId){
+  const el = document.getElementById(containerId);
+  if (!el) return new Set();
+  return new Set([...el.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value));
+}
+
+function groupedLinkPickerHtml(checkedIds){
+  const cutoff = Date.now() - 8*3600000;
+  const entries = (DATA.foodLogRaw||[]).filter(r => new Date(r.ts).getTime() >= cutoff);
+  const groups = { bolus: [], khd: [], beweging: [] };
+  entries.forEach(r => {
+    const t = groups[r.type] ? r.type : 'khd';
+    groups[t].push(r);
+  });
+  ['bolus','khd','beweging'].forEach(t => groups[t].sort((a,b) => new Date(b.ts) - new Date(a.ts)));
+  const labels = { bolus: 'Bolus', khd: 'KHD', beweging: 'Beweging' };
+
+  let html = '';
+  ['bolus','khd','beweging'].forEach(t => {
+    if (!groups[t].length) return;
+    html += '<div style="font-size:11px; color:#8a8a86; margin-top:4px; text-transform:uppercase;">' + labels[t] + '</div>';
+    groups[t].forEach(r => {
+      html += '<label style="display:block; font-size:12px; padding:2px 0; cursor:pointer;">' +
+        '<input type="checkbox" value="' + r.id + '"' + (checkedIds.has(String(r.id)) ? ' checked' : '') + '> ' +
+        fmtTime(r.ts) + ' · ' + (r.desc||'') +
+      '</label>';
+    });
+  });
+  return html || '<div style="font-size:12px; color:#b7b7b2;">Nog geen entries in de afgelopen 8 uur.</div>';
+}
+
+function renderLinkPickers(){
+  ['ql','qb','qe'].forEach(prefix => {
+    const containerId = prefix + 'LinkPicker';
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const checked = getCheckedLinkIds(containerId);
+    el.innerHTML = groupedLinkPickerHtml(checked);
+  });
+}
+
 async function loadData(){
   const errBox = document.getElementById('loadError');
   if (!READ_KEY) {
@@ -327,6 +380,7 @@ async function loadData(){
     renderBgHeader();
     renderStatGrid();
     render();
+    renderLinkPickers();
     if (document.getElementById('viewHoogtepunten').style.display !== 'none') renderHighlights();
   } catch (err) {
     errBox.textContent = 'Kon data niet ophalen: ' + err.message;
@@ -615,16 +669,29 @@ async function sendLog(url, statusEl){
     const json = await res.json();
     if (json.status === 'ok') {
       statusEl.textContent = json.message || 'Gelogd!';
-      loadData();
+      await loadData();
+      return json;
     } else {
       statusEl.textContent = 'Mislukt: ' + (json.message || 'onbekende fout');
+      return null;
     }
   } catch (err) {
     statusEl.textContent = 'Mislukt: ' + err.message;
+    return null;
   }
 }
 
-function quickLog(){
+async function applyPickedLinks(prefix, newId){
+  if (!newId) return;
+  const picker = document.getElementById(prefix + 'LinkPicker');
+  if (!picker) return;
+  const linkTo = [...picker.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value).join(',');
+  if (!linkTo) return;
+  await fetch(API_LINK + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(newId) + '&linkTo=' + encodeURIComponent(linkTo));
+  await loadData();
+}
+
+async function quickLog(){
   const desc = document.getElementById('qlDesc').value.trim();
   const carbs = document.getElementById('qlCarbs').value.trim();
   const ts = buildTs('ql', 'qlTimeOnly');
@@ -632,12 +699,13 @@ function quickLog(){
   if (!desc){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
 
   const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
-  sendLog(url, status);
+  const result = await sendLog(url, status);
+  await applyPickedLinks('ql', result && result.id);
   document.getElementById('qlDesc').value = '';
   document.getElementById('qlCarbs').value = '';
 }
 
-function quickExercise(){
+async function quickExercise(){
   const type = document.getElementById('qeType').value;
   const activity = document.getElementById('qeActivity').value.trim();
   const duration = document.getElementById('qeDuration').value.trim();
@@ -651,12 +719,13 @@ function quickExercise(){
   const context = duration ? ('Duur: ' + duration + ' minuten.') : '';
 
   const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent(tags) + '&carbs=' + encodeURIComponent('0') + '&context=' + encodeURIComponent(context) + '&type=beweging' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
-  sendLog(url, status);
+  const result = await sendLog(url, status);
+  await applyPickedLinks('qe', result && result.id);
   document.getElementById('qeActivity').value = '';
   document.getElementById('qeDuration').value = '';
 }
 
-function quickBolus(){
+async function quickBolus(){
   const units = document.getElementById('qbUnits').value.trim();
   const bolusType = document.getElementById('qbType').value;
   const reason = document.getElementById('qbReason').value.trim();
@@ -668,7 +737,8 @@ function quickBolus(){
   const context = reason || '';
 
   const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + '&bolusType=' + encodeURIComponent(bolusType) + (ts ? '&ts=' + encodeURIComponent(ts) : '');
-  sendLog(url, status);
+  const result = await sendLog(url, status);
+  await applyPickedLinks('qb', result && result.id);
   document.getElementById('qbUnits').value = '';
   document.getElementById('qbReason').value = '';
 }

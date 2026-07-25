@@ -128,11 +128,12 @@ async function handleLog(env, params) {
   const source = params.get('source') || 'Marc';
   const bolusType = type === 'bolus' ? (params.get('bolusType') || '') : '';
 
-  await env.DB.prepare(
+  const result = await env.DB.prepare(
     'INSERT INTO food_log (timestamp, description, tags, amount, context, type, source, bolus_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(tsText, desc, tags, amount, context, type, source, bolusType).run();
 
-  return jsonOut({ status: 'ok', message: 'Gelogd: ' + tsText + ' - ' + desc, ts: tsText });
+  const newId = result.meta && result.meta.last_row_id;
+  return jsonOut({ status: 'ok', message: 'Gelogd: ' + tsText + ' - ' + desc, ts: tsText, id: newId });
 }
 
 // ---- /api/update: een eigen log-entry bewerken ----
