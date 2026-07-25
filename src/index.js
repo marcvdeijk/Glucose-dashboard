@@ -30,6 +30,17 @@ async function setState(env, key, value) {
 
 // ---- /api/data: lezen ----
 
+function nearestGlucose(glucose, tsText) {
+  if (!glucose.length) return null;
+  const target = new Date(tsText).getTime();
+  let best = null, bestDiff = Infinity;
+  for (const g of glucose) {
+    const diff = Math.abs(new Date(g.ts).getTime() - target);
+    if (diff < bestDiff) { bestDiff = diff; best = g.glucose; }
+  }
+  return best;
+}
+
 async function getData(env) {
   const glucoseRows = await env.DB.prepare(
     "SELECT timestamp, glucose FROM nightscout_data WHERE type = 'glucose' ORDER BY timestamp"
@@ -42,12 +53,32 @@ async function getData(env) {
   const treatments = treatmentRows.results.map(r => ({ ts: r.timestamp.replace(' ', 'T'), bolus: r.bolus }));
 
   const logRows = await env.DB.prepare(
-    "SELECT id, timestamp, description, tags, amount, context, type FROM food_log ORDER BY timestamp"
+    "SELECT id, timestamp, description, tags, amount, context, type, source, bolus_type FROM food_log ORDER BY timestamp"
   ).all();
 
-  const foodLogRaw = logRows.results.map(r => ({
-    id: r.id, ts: r.timestamp.replace(' ', 'T'), desc: r.description, tags: r.tags, amount: r.amount, context: r.context, type: r.type || ''
-  }));
+  const linkRows = await env.DB.prepare("SELECT entry_a_id, entry_b_id FROM entry_links").all();
+  const linkMap = {};
+  linkRows.results.forEach(l => {
+    (linkMap[l.entry_a_id] = linkMap[l.entry_a_id] || []).push(l.entry_b_id);
+    (linkMap[l.entry_b_id] = linkMap[l.entry_b_id] || []).push(l.entry_a_id);
+  });
+  const byId = {};
+  logRows.results.forEach(r => { byId[r.id] = r; });
+
+  const foodLogRaw = logRows.results.map(r => {
+    const linkedIds = [...new Set(linkMap[r.id] || [])];
+    const links = linkedIds.map(lid => {
+      const o = byId[lid];
+      return o ? { id: o.id, desc: o.description, type: o.type || '', ts: o.timestamp.replace(' ', 'T') } : null;
+    }).filter(Boolean);
+    return {
+      id: r.id, ts: r.timestamp.replace(' ', 'T'), desc: r.description, tags: r.tags, amount: r.amount,
+      context: r.context, type: r.type || '', source: r.source || 'Marc',
+      bolusType: r.bolus_type || '',
+      bgAtEntry: r.type === 'bolus' ? nearestGlucose(glucose, r.timestamp.replace(' ', 'T')) : null,
+      links
+    };
+  });
 
   const meals = [];
   const exercises = [];
@@ -94,10 +125,12 @@ async function handleLog(env, params) {
   const amount = params.get('carbs') !== null && params.get('carbs') !== '' ? Number(params.get('carbs')) : null;
   const context = params.get('context') || '';
   const type = params.get('type') || 'khd';
+  const source = params.get('source') || 'Marc';
+  const bolusType = type === 'bolus' ? (params.get('bolusType') || '') : '';
 
   await env.DB.prepare(
-    'INSERT INTO food_log (timestamp, description, tags, amount, context, type) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(tsText, desc, tags, amount, context, type).run();
+    'INSERT INTO food_log (timestamp, description, tags, amount, context, type, source, bolus_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(tsText, desc, tags, amount, context, type, source, bolusType).run();
 
   return jsonOut({ status: 'ok', message: 'Gelogd: ' + tsText + ' - ' + desc, ts: tsText });
 }
@@ -111,7 +144,7 @@ async function handleUpdate(env, params) {
   }
 
   const existing = await env.DB.prepare(
-    'SELECT description, tags, amount, context, timestamp, type FROM food_log WHERE id = ?'
+    'SELECT description, tags, amount, context, timestamp, type, bolus_type FROM food_log WHERE id = ?'
   ).bind(id).first();
   if (!existing) {
     return jsonOut({ status: 'error', message: 'Niets gevonden om bij te werken.' });
@@ -124,12 +157,13 @@ async function handleUpdate(env, params) {
     : existing.amount;
   const context = params.has('context') ? (params.get('context') || '') : existing.context;
   const type = params.has('type') && params.get('type') ? params.get('type') : existing.type;
+  const bolusType = params.has('bolusType') ? (params.get('bolusType') || '') : (existing.bolus_type || '');
   const tsParam = params.get('ts');
   const tsText = tsParam ? tsParam.replace('T', ' ') + ':00' : existing.timestamp;
 
   const result = await env.DB.prepare(
-    'UPDATE food_log SET description = ?, tags = ?, amount = ?, context = ?, timestamp = ?, type = ? WHERE id = ?'
-  ).bind(desc, tags, amount, context, tsText, type, id).run();
+    'UPDATE food_log SET description = ?, tags = ?, amount = ?, context = ?, timestamp = ?, type = ?, bolus_type = ? WHERE id = ?'
+  ).bind(desc, tags, amount, context, tsText, type, bolusType, id).run();
 
   if (!result.meta || result.meta.changes === 0) {
     return jsonOut({ status: 'error', message: 'Niets gevonden om bij te werken.' });
@@ -312,6 +346,27 @@ async function handleMcp(request, env) {
   return mcpError(id, -32601, 'Methode niet gevonden: ' + method);
 }
 
+// ---- /api/link: entries aan elkaar koppelen (bolus/khd/beweging, alles met alles) ----
+
+async function handleLink(env, params) {
+  const id = Number(params.get('id'));
+  if (!id) return jsonOut({ status: 'error', message: 'Geen id opgegeven.' });
+
+  const linkToRaw = params.get('linkTo') || '';
+  const linkTo = [...new Set(linkToRaw.split(',').map(s => Number(s.trim())).filter(n => n && n !== id))];
+
+  await env.DB.prepare('DELETE FROM entry_links WHERE entry_a_id = ? OR entry_b_id = ?').bind(id, id).run();
+
+  if (linkTo.length) {
+    const now = fmtTimestamp(new Date());
+    const stmts = linkTo.map(otherId =>
+      env.DB.prepare('INSERT INTO entry_links (entry_a_id, entry_b_id, created_at) VALUES (?, ?, ?)').bind(id, otherId, now)
+    );
+    await env.DB.batch(stmts);
+  }
+  return jsonOut({ status: 'ok', message: 'Koppelingen bijgewerkt.', id, linkTo });
+}
+
 // ---- Router ----
 
 export default {
@@ -356,6 +411,13 @@ export default {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
       return handleDelete(env, url.searchParams);
+    }
+
+    if (url.pathname === '/api/link') {
+      if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      return handleLink(env, url.searchParams);
     }
 
     if (url.pathname === '/mcp') {

@@ -64,6 +64,7 @@
     #viewRuweData td[data-label="Beschrijving"] { order: 4; flex-basis: 100%; }
     #viewRuweData td[data-label="Tags"] { order: 5; flex-basis: 100%; }
     #viewRuweData td[data-label="Context"] { order: 6; flex-basis: 100%; }
+    #viewRuweData td[data-label="Gekoppeld"] { order: 6; flex-basis: 100%; }
     #viewRuweData td.rd-actions {
       order: 7;
       flex-basis: 100%;
@@ -157,6 +158,12 @@
         <div style="width:33.333%; flex-shrink:0; padding:0 2px; box-sizing:border-box;">
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <input id="qbUnits" type="number" placeholder="Eenheden (E)" style="flex:1; min-width:100px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+            <select id="qbType" style="flex:1; min-width:120px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+              <option value="regulier">Regulier</option>
+              <option value="pre-bolus">Pre-bolus</option>
+              <option value="correctie">Correctie</option>
+              <option value="na-bolus">Na-bolus</option>
+            </select>
             <input id="qbReason" type="text" placeholder="Reden (optioneel)" style="flex:2; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
@@ -229,12 +236,13 @@
     <table style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">
       <colgroup>
         <col style="width:7%">
-        <col style="width:20%">
-        <col style="width:6%">
+        <col style="width:17%">
+        <col style="width:8%">
         <col style="width:8%" class="rd-who-col">
         <col style="width:6%">
-        <col style="width:12%">
-        <col style="width:35%">
+        <col style="width:11%">
+        <col style="width:23%">
+        <col style="width:14%">
         <col style="width:6%">
       </colgroup>
       <thead>
@@ -246,6 +254,7 @@
           <th style="padding:6px 8px;">Aantal</th>
           <th style="padding:6px 8px;">Tags</th>
           <th style="padding:6px 8px;">Context</th>
+          <th style="padding:6px 8px;">Gekoppeld</th>
           <th style="padding:6px 8px;">Actie</th>
         </tr>
       </thead>
@@ -270,6 +279,7 @@ const API_DATA = '/api/data';
 const API_LOG = '/api/log';
 const API_DELETE = '/api/delete';
 const API_UPDATE = '/api/update';
+const API_LINK = '/api/link';
 
 const urlParams = new URLSearchParams(window.location.search);
 const READ_KEY = urlParams.get('read') || '';
@@ -648,6 +658,7 @@ function quickExercise(){
 
 function quickBolus(){
   const units = document.getElementById('qbUnits').value.trim();
+  const bolusType = document.getElementById('qbType').value;
   const reason = document.getElementById('qbReason').value.trim();
   const ts = buildTs('qb', 'qbTimeOnly');
   const status = document.getElementById('qbStatus');
@@ -656,7 +667,7 @@ function quickBolus(){
   const desc = 'Bolus ' + units + 'E';
   const context = reason || '';
 
-  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + '&bolusType=' + encodeURIComponent(bolusType) + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   sendLog(url, status);
   document.getElementById('qbUnits').value = '';
   document.getElementById('qbReason').value = '';
@@ -757,7 +768,8 @@ function renderRuweData(){
   body.innerHTML = '';
 
   ruweRows = (DATA.foodLogRaw||[]).map(r => ({
-    id: r.id, ts: r.ts, type: r.type || 'khd', desc: r.desc, amount: r.amount, tags: r.tags, context: r.context
+    id: r.id, ts: r.ts, type: r.type || 'khd', desc: r.desc, amount: r.amount, tags: r.tags, context: r.context,
+    bolusType: r.bolusType || '', bgAtEntry: r.bgAtEntry, links: r.links || []
   }));
 
   let rows = ruweRows;
@@ -765,7 +777,7 @@ function renderRuweData(){
   rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
 
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="7" style="padding:12px 8px; color:#b7b7b2;">Geen rijen voor dit filter.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" style="padding:12px 8px; color:#b7b7b2;">Geen rijen voor dit filter.</td></tr>';
     return;
   }
 
@@ -773,14 +785,21 @@ function renderRuweData(){
     const tr = document.createElement('tr');
     tr.id = 'rdRow-' + r.id;
     tr.style.borderBottom = '1px solid #2c2c2e';
+    const typeLabel = r.type === 'bolus'
+      ? r.type + (r.bolusType ? ' (' + r.bolusType + ')' : '') + (r.bgAtEntry != null ? ' · BG ' + r.bgAtEntry : '')
+      : r.type;
+    const linksLabel = r.links.length
+      ? r.links.map(l => (l.desc||l.type)).join(', ')
+      : '–';
     tr.innerHTML =
       '<td data-label="Tijd" class="rd-time" style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
       '<td data-label="Beschrijving" class="rd-desc" style="padding:6px 8px; word-wrap:break-word;">' + (r.desc||'') + '</td>' +
-      '<td data-label="Type" class="rd-type" style="padding:6px 8px;">' + r.type + '</td>' +
+      '<td data-label="Type" class="rd-type" style="padding:6px 8px;">' + typeLabel + '</td>' +
       '<td data-label="Wie" class="rd-who-col" style="padding:6px 8px;">' + (r.source||'Marc') + '</td>' +
       '<td data-label="Aantal" class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
       '<td data-label="Tags" class="rd-tags" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.tags||'') + '</td>' +
       '<td data-label="Context" class="rd-context" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.context||'') + '</td>' +
+      '<td data-label="Gekoppeld" class="rd-links" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + linksLabel + '</td>' +
       '<td data-label="Actie" class="rd-actions" style="padding:6px 8px; white-space:nowrap;">' +
         '<button onclick="editLogRow(' + r.id + ')" title="Bewerken" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_EDIT + '</button>' +
         '<button onclick="deleteLogRow(' + r.id + ', this)" title="Verwijderen" style="background:transparent; border:none; cursor:pointer; color:#e24b4a; padding:2px 4px;">' + ICON_TRASH + '</button>' +
@@ -799,11 +818,30 @@ function editLogRow(id){
   tr.querySelector('.rd-time').innerHTML = '<input id="rdEditTs-' + id + '" type="datetime-local" value="' + tsLocal + '" style="width:100%; min-width:150px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
   tr.querySelector('.rd-type').innerHTML = '<select id="rdEditType-' + id + '" style="background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' +
     ['khd','bolus','beweging'].map(t => '<option value="' + t + '"' + (t === row.type ? ' selected' : '') + '>' + t + '</option>').join('') +
-    '</select>';
+    '</select>' +
+    (row.type === 'bolus' ? '<br><select id="rdEditBolusType-' + id + '" style="margin-top:4px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' +
+      ['regulier','pre-bolus','correctie','na-bolus'].map(t => '<option value="' + t + '"' + (t === row.bolusType ? ' selected' : '') + '>' + t + '</option>').join('') +
+      '</select>' : '');
   tr.querySelector('.rd-desc').innerHTML = '<input id="rdEditDesc-' + id + '" value="' + (row.desc||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
   tr.querySelector('.rd-amount').innerHTML = '<input id="rdEditAmount-' + id + '" type="number" value="' + (row.amount != null ? row.amount : '') + '" style="width:70px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
   tr.querySelector('.rd-tags').innerHTML = '<input id="rdEditTags-' + id + '" value="' + (row.tags||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
   tr.querySelector('.rd-context').innerHTML = '<textarea id="rdEditContext-' + id + '" style="width:100%; min-height:60px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' + (row.context||'') + '</textarea>';
+
+  const linkedIds = new Set(row.links.map(l => l.id));
+  const candidates = ruweRows
+    .filter(r => r.id !== id)
+    .sort((a,b) => new Date(b.ts) - new Date(a.ts))
+    .slice(0, 20);
+  const pickerHtml = '<div id="rdEditLinks-' + id + '" style="max-height:120px; overflow-y:auto; border:1px solid #45454a; border-radius:4px; padding:4px 6px; background:#1c1c1e;">' +
+    candidates.map(c =>
+      '<label style="display:block; font-size:12px; padding:2px 0; cursor:pointer;">' +
+        '<input type="checkbox" value="' + c.id + '"' + (linkedIds.has(c.id) ? ' checked' : '') + '> ' +
+        fmtTime(c.ts) + ' · ' + c.type + ' · ' + (c.desc||'') +
+      '</label>'
+    ).join('') +
+    '</div>';
+  tr.querySelector('.rd-links').innerHTML = pickerHtml;
+
   tr.querySelector('.rd-actions').innerHTML =
     '<button onclick="saveLogRow(' + id + ')" title="Opslaan" style="background:transparent; border:none; cursor:pointer; color:#7edf54; padding:2px 4px;">' + ICON_SAVE + '</button>' +
     '<button onclick="renderRuweData()" title="Annuleren" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_CANCEL + '</button>';
@@ -816,19 +854,33 @@ async function saveLogRow(id){
   const context = document.getElementById('rdEditContext-' + id).value;
   const ts = document.getElementById('rdEditTs-' + id).value;
   const type = document.getElementById('rdEditType-' + id).value;
+  const bolusTypeEl = document.getElementById('rdEditBolusType-' + id);
+  const bolusType = bolusTypeEl ? bolusTypeEl.value : '';
 
   try {
     const res = await fetch(API_UPDATE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id) +
       '&desc=' + encodeURIComponent(desc) + '&amount=' + encodeURIComponent(amount) +
       '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) +
-      '&ts=' + encodeURIComponent(ts) + '&type=' + encodeURIComponent(type));
+      '&ts=' + encodeURIComponent(ts) + '&type=' + encodeURIComponent(type) +
+      '&bolusType=' + encodeURIComponent(bolusType));
     const json = await res.json();
-    if (json.status === 'ok') {
-      await loadData();
-      renderRuweData();
-    } else {
+    if (json.status !== 'ok') {
       alert('Mislukt: ' + (json.message || 'onbekende fout'));
+      return;
     }
+
+    const linksBox = document.getElementById('rdEditLinks-' + id);
+    const linkTo = linksBox
+      ? [...linksBox.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value).join(',')
+      : '';
+    const linkRes = await fetch(API_LINK + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id) + '&linkTo=' + encodeURIComponent(linkTo));
+    const linkJson = await linkRes.json();
+    if (linkJson.status !== 'ok') {
+      alert('Bijgewerkt, maar koppelingen opslaan mislukte: ' + (linkJson.message || 'onbekende fout'));
+    }
+
+    await loadData();
+    renderRuweData();
   } catch (err) {
     alert('Mislukt: ' + err.message);
   }
