@@ -100,7 +100,12 @@ async function getData(env) {
 
   treatments.sort((a, b) => a.ts < b.ts ? -1 : 1);
 
-  return { glucose, treatments, meals, exercises, foodLogRaw };
+  const sensorRow = await env.DB.prepare(
+    "SELECT timestamp FROM nightscout_data WHERE event_type = 'Sensor Start' ORDER BY timestamp DESC LIMIT 1"
+  ).first();
+  const sensorStart = sensorRow ? sensorRow.timestamp.replace(' ', 'T') : null;
+
+  return { glucose, treatments, meals, exercises, foodLogRaw, sensorStart };
 }
 
 async function handleData(env) {
@@ -225,9 +230,9 @@ async function syncNightscout(env) {
 
   // Dedup: bestaande timestamps binnen het overlap-venster ophalen
   const existingRows = await env.DB.prepare(
-    "SELECT timestamp, type FROM nightscout_data WHERE timestamp >= ?"
+    "SELECT timestamp, type, event_type FROM nightscout_data WHERE timestamp >= ?"
   ).bind(fmtTimestamp(sinceDate)).all();
-  const existingKeys = new Set(existingRows.results.map(r => r.timestamp + '|' + r.type));
+  const existingKeys = new Set(existingRows.results.map(r => r.timestamp + '|' + r.type + '|' + (r.event_type || '')));
 
   const newRows = [];
 
@@ -236,27 +241,28 @@ async function syncNightscout(env) {
     const ts = e.date ? new Date(e.date) : new Date(e.dateString);
     if (isNaN(ts.getTime())) return;
     const tsText = fmtTimestamp(ts);
-    const key = tsText + '|glucose';
+    const key = tsText + '|glucose|';
     if (existingKeys.has(key)) return;
     existingKeys.add(key);
-    newRows.push({ ts, sql: 'glucose', vals: [tsText, 'glucose', (e.sgv / 18).toFixed(1), null, null, null] });
+    newRows.push({ ts, sql: 'glucose', vals: [tsText, 'glucose', (e.sgv / 18).toFixed(1), null, null, null, null] });
   });
 
   treatmentsData.forEach(t => {
     const ts = new Date(t.created_at);
     if (isNaN(ts.getTime())) return;
     const tsText = fmtTimestamp(ts);
-    const key = tsText + '|treatment';
+    const eventType = t.eventType || '';
+    const key = tsText + '|treatment|' + eventType;
     if (existingKeys.has(key)) return;
     existingKeys.add(key);
-    newRows.push({ ts, sql: 'treatment', vals: [tsText, 'treatment', null, t.carbs || null, t.insulin || null, t.notes || null] });
+    newRows.push({ ts, sql: 'treatment', vals: [tsText, 'treatment', null, t.carbs || null, t.insulin || null, t.notes || null, eventType || null] });
   });
 
   newRows.sort((a, b) => a.ts - b.ts);
 
   if (newRows.length > 0) {
     const stmts = newRows.map(r =>
-      env.DB.prepare('INSERT INTO nightscout_data (timestamp, type, glucose, amount, bolus, notes) VALUES (?, ?, ?, ?, ?, ?)').bind(...r.vals)
+      env.DB.prepare('INSERT INTO nightscout_data (timestamp, type, glucose, amount, bolus, notes, event_type) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(...r.vals)
     );
     for (let i = 0; i < stmts.length; i += 100) {
       await env.DB.batch(stmts.slice(i, i + 100));
