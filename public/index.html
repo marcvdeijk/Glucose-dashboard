@@ -1261,7 +1261,7 @@ function renderIobChart(){
         }
       },
       scales: {
-        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:9}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
+        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
         y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
       }
     }
@@ -1336,7 +1336,7 @@ function renderActivityChart(boluses){
         }
       },
       scales: {
-        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:9}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
+        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
         y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
       }
     }
@@ -1430,8 +1430,8 @@ function renderHomeTrendChart(){
       responsive: true,
       plugins: { legend:{display:false}, tooltip:{enabled:false}, datalabels:{display:false} },
       scales: {
-        x: { ticks:{ color:'#8a8a86', font:{size:9}, maxTicksLimit:6, autoSkip:true }, grid:{display:false} },
-        y: { ticks:{ color:'#8a8a86', font:{size:9} }, grid:{color:'rgba(255,255,255,0.06)'} }
+        x: { ticks:{ color:'#8a8a86', font:{size:12}, maxTicksLimit:6, autoSkip:true }, grid:{display:false} },
+        y: { ticks:{ color:'#8a8a86', font:{size:12} }, grid:{color:'rgba(255,255,255,0.06)'} }
       }
     }
   });
@@ -1516,8 +1516,8 @@ function renderIcrChart(){
         }
       },
       scales: {
-        x: { ticks: { color: '#8a8a86', font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: '#8a8a86', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true }
+        x: { ticks: { color: '#8a8a86', font: { size: 13 } }, grid: { display: false } },
+        y: { ticks: { color: '#8a8a86', font: { size: 12 } }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true }
       }
     }
   });
