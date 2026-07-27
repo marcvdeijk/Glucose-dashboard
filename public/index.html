@@ -108,6 +108,7 @@
       <span id="bgValue" style="font-size:52px; font-weight:600;">-</span>
       <span id="bgArrow" style="font-size:38px; font-weight:600;"></span>
     </div>
+    <div style="font-size:12px; color:#b7b7b2; margin-top:6px;">Sensor: <span id="sensorAge" style="font-weight:500;">-</span></div>
   </div>
 
   <div class="chartWrap">
@@ -492,6 +493,27 @@ function renderBgHeader(){
 
   const minsAgo = Math.round((Date.now() - new Date(last.ts)) / 60000);
   agoEl.textContent = minsAgo <= 0 ? 'Nu' : minsAgo + ' min geleden';
+
+  const sensorEl = document.getElementById('sensorAge');
+  if (sensorEl){
+    if (!DATA.sensorStart){
+      sensorEl.textContent = 'onbekend';
+      sensorEl.style.color = '#b7b7b2';
+    } else {
+      const LIBRE2_LIFESPAN_MS = 14 * 24 * 3600000;
+      const ageMs = Date.now() - new Date(DATA.sensorStart).getTime();
+      const remainingMs = LIBRE2_LIFESPAN_MS - ageMs;
+      if (remainingMs <= 0){
+        sensorEl.textContent = 'verlopen';
+        sensorEl.style.color = '#e24b4a';
+      } else {
+        const days = Math.floor(remainingMs / 86400000);
+        const hours = Math.floor((remainingMs % 86400000) / 3600000);
+        sensorEl.textContent = 'nog ' + days + 'd ' + hours + 'u';
+        sensorEl.style.color = remainingMs < 24*3600000 ? '#e0a030' : '#b7b7b2';
+      }
+    }
+  }
 }
 
 let currentKpiPeriod = 'today';
