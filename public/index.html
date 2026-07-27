@@ -649,6 +649,7 @@ function selectMode(mode, btn){
 
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}); }
 function fmtDayTime(ts){ return new Date(ts).toLocaleDateString('nl-NL', {day:'numeric', month:'short'}) + ' ' + fmtTime(ts); }
+function fmtShortDate(ts){ const d = new Date(ts); return d.getDate() + '-' + (d.getMonth()+1); }
 function zoneColor(v){ if (v < 3.9) return '#e24b4a'; if (v > 10.0) return '#efa000'; return '#5dcaa5'; }
 function dayLabel(ts){
   const d = new Date(ts);
@@ -1261,7 +1262,7 @@ function renderIobChart(){
         }
       },
       scales: {
-        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
+        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0, display: window.innerWidth >= 900 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
         y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
       }
     }
@@ -1336,7 +1337,7 @@ function renderActivityChart(boluses){
         }
       },
       scales: {
-        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
+        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0, display: window.innerWidth >= 900 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
         y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
       }
     }
@@ -1405,7 +1406,7 @@ function renderHomeTrendChart(){
   if (!canvas) return;
   const cutoff = Date.now() - homeTrendHours * 3600000;
   const pts = (DATA.glucose || []).filter(g => new Date(g.ts).getTime() >= cutoff);
-  const labels = pts.map(g => homeTrendHours <= 24 ? fmtTime(g.ts) : fmtDayTime(g.ts));
+  const labels = pts.map(g => homeTrendHours <= 24 ? fmtTime(g.ts) : fmtShortDate(g.ts));
   const values = pts.map(g => g.glucose);
 
   if (homeTrendChartInstance) homeTrendChartInstance.destroy();
@@ -1431,7 +1432,7 @@ function renderHomeTrendChart(){
       plugins: { legend:{display:false}, tooltip:{enabled:false}, datalabels:{display:false} },
       scales: {
         x: { ticks:{ color:'#8a8a86', font:{size:12}, maxTicksLimit:6, autoSkip:true }, grid:{display:false} },
-        y: { ticks:{ color:'#8a8a86', font:{size:12} }, grid:{color:'rgba(255,255,255,0.06)'} }
+        y: { display:false }
       }
     }
   });
