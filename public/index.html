@@ -152,6 +152,7 @@
       <span id="bgValue" style="font-size:56px; font-weight:500; letter-spacing:-2px;">-</span>
       <span id="bgArrow" style="font-size:38px; font-weight:500; margin-left:4px;"></span>
     </div>
+    <div style="font-size:12px; color:#8a8a86; margin-top:6px;">Sensor: <span id="sensorAge" style="font-weight:600; color:#b7b7b2;">-</span></div>
   </div>
 
   <div class="chartWrap">
@@ -712,6 +713,21 @@ function renderBgHeader(){
 
   const minsAgo = Math.round((Date.now() - new Date(last.ts)) / 60000);
   agoEl.textContent = minsAgo <= 0 ? 'Nu' : minsAgo + ' min geleden';
+  const sensorEl = document.getElementById('sensorAge');
+  if (sensorEl) {
+    if (!DATA.sensorStart) {
+      sensorEl.textContent = 'onbekend';
+    } else {
+      const remainingMs = 14*24*3600000 - (Date.now() - new Date(DATA.sensorStart).getTime());
+      if (remainingMs <= 0) {
+        sensorEl.textContent = 'verlopen'; sensorEl.style.color = '#ff6b64';
+      } else {
+        const d = Math.floor(remainingMs/86400000), h = Math.floor((remainingMs%86400000)/3600000);
+        sensorEl.textContent = 'nog ' + d + 'd ' + h + 'u';
+      }
+    }
+  }
+
 }
 
 let currentKpiPeriod = 'today';
