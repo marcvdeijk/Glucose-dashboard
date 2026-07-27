@@ -2031,12 +2031,6 @@ function initHomeGrid(){
   gridStackInstance.on('change', () => { scheduleLayoutSave(); });
   gridStackInstance.on('resizestop', () => { resizeHomeCharts(); });
 
-  function applyResponsiveColumns(){
-    gridStackInstance.column(window.innerWidth < 900 ? 2 : 6, 'moveScale');
-  }
-  applyResponsiveColumns();
-  window.addEventListener('resize', applyResponsiveColumns);
-
   loadHomeLayout();
 }
 
