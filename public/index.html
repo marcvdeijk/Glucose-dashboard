@@ -2028,6 +2028,7 @@ function initHomeGrid(){
     animate: true
   }, '#homeTileGrid');
 
+  gridStackInstance.column(6);
   gridStackInstance.on('change', () => { scheduleLayoutSave(); });
   gridStackInstance.on('resizestop', () => { resizeHomeCharts(); });
 
