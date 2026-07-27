@@ -353,6 +353,35 @@ async function handleMcp(request, env) {
   return mcpError(id, -32601, 'Methode niet gevonden: ' + method);
 }
 
+// ---- /api/layout/*: indeling van de Home-widgets (opgeslagen via kv_state) ----
+
+async function handleLayoutGet(env) {
+  const layout = await getState(env, 'home_layout');
+  return jsonOut({ status: 'ok', layout: layout || null });
+}
+
+async function handleLayoutSave(env, params) {
+  const layout = params.get('layout');
+  if (!layout) return jsonOut({ status: 'error', message: 'Geen layout opgegeven.' });
+  await setState(env, 'home_layout', layout);
+  return jsonOut({ status: 'ok' });
+}
+
+async function handleLayoutSetDefault(env) {
+  const layout = await getState(env, 'home_layout');
+  if (!layout) return jsonOut({ status: 'error', message: 'Nog geen indeling om als standaard op te slaan.' });
+  await setState(env, 'home_layout_default', layout);
+  return jsonOut({ status: 'ok' });
+}
+
+async function handleLayoutReset(env) {
+  const def = await getState(env, 'home_layout_default');
+  if (def) {
+    await setState(env, 'home_layout', def);
+  }
+  return jsonOut({ status: 'ok', layout: def || null });
+}
+
 // ---- /api/link: entries aan elkaar koppelen (bolus/khd/beweging, alles met alles) ----
 
 async function handleLink(env, params) {
@@ -425,6 +454,34 @@ export default {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
       return handleLink(env, url.searchParams);
+    }
+
+    if (url.pathname === '/api/layout/get') {
+      if (!env.READ_KEY || url.searchParams.get('key') !== env.READ_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      return handleLayoutGet(env);
+    }
+
+    if (url.pathname === '/api/layout/save') {
+      if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      return handleLayoutSave(env, url.searchParams);
+    }
+
+    if (url.pathname === '/api/layout/set-default') {
+      if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      return handleLayoutSetDefault(env);
+    }
+
+    if (url.pathname === '/api/layout/reset') {
+      if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
+        return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+      }
+      return handleLayoutReset(env);
     }
 
     if (url.pathname === '/mcp') {
