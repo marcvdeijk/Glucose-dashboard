@@ -1409,9 +1409,37 @@ function renderHomeTrendChart(){
   const labels = pts.map(g => homeTrendHours <= 24 ? fmtTime(g.ts) : fmtShortDate(g.ts));
   const values = pts.map(g => g.glucose);
 
+  const dayBoundaryIdx = [];
+  if (homeTrendHours > 24) {
+    for (let i = 1; i < pts.length; i++) {
+      if (new Date(pts[i].ts).getDate() !== new Date(pts[i-1].ts).getDate()) dayBoundaryIdx.push(i);
+    }
+  }
+  const dayGridLinesPlugin = {
+    id: 'dayGridLines',
+    afterDraw(chart){
+      if (!dayBoundaryIdx.length) return;
+      const { ctx, scales, chartArea } = chart;
+      if (!scales.x) return;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      dayBoundaryIdx.forEach(idx => {
+        const x = scales.x.getPixelForValue(idx);
+        if (x == null || isNaN(x)) return;
+        ctx.beginPath();
+        ctx.moveTo(x, chartArea.top);
+        ctx.lineTo(x, chartArea.bottom);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+  };
+
   if (homeTrendChartInstance) homeTrendChartInstance.destroy();
   homeTrendChartInstance = new Chart(canvas, {
     type: 'line',
+    plugins: [dayGridLinesPlugin],
     data: {
       labels,
       datasets: [{
