@@ -2,27 +2,67 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Glucose dashboard</title>
 <style>
   html { background: linear-gradient(180deg, #6d7486, #0a0d13); background-attachment: fixed; }
-  body { color:#e4e4e0; font-family:-apple-system,BlinkMacSystemFont,sans-serif; margin:0; padding:16px; }
+  body { color:#e4e4e0; font-family:-apple-system,BlinkMacSystemFont,sans-serif; margin:0; padding:10px; }
   select, input, button { font-family: -apple-system,BlinkMacSystemFont,sans-serif; }
-  select, input { background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:15px; }
-  .dayBtn { background:#2c2c2e; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:13px; cursor:pointer; }
-  .dayBtn.dayBtnActive { background:#45454a; color:#e4e4e0; }
-  .pillRow { display:flex; border:1px solid #45454a; border-radius:6px; overflow:hidden; flex:1; min-width:0; }
-  .pillRow .dayBtn { flex:1; min-width:0; border:none; border-right:1px solid #45454a; border-radius:0; font-size:12px; padding:8px 4px; text-align:center; }
-  .pillRow .dayBtn:last-child { border-right:none; }
-  #daySelect { font-size:13px; padding:8px 10px; }
-  input[type="time"] { font-size:13px; padding:8px 10px; }
+  select, input { background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px; }
+  .dayBtn { background:transparent; color:#b7b7b2; border:none; border-radius:8px; padding:7px 10px; font-size:13px; font-weight:500; cursor:pointer; }
+  .dayBtn.dayBtnActive { background:rgba(255,255,255,0.94); color:#1c1c1e; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.25); }
+  .pillRow { display:flex; background:rgba(120,120,128,0.24); border-radius:10px; padding:2px; gap:2px; flex:1; min-width:0; }
+  .pillRow .dayBtn { flex:1; min-width:0; font-size:12px; padding:7px 4px; text-align:center; }
+  #daySelect { font-size:16px; padding:8px 10px; }
+  input[type="time"] { font-size:16px; padding:8px 10px; }
   .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:12px 0; }
-  .stat { background:rgba(44,44,46,0.75); border-radius:6px; padding:6px 4px; text-align:center; }
-  .stat .label { font-size:10px; color:#b7b7b2; }
-  .stat .value { font-size:14px; font-weight:500; margin-top:2px; }
+  .stat { background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,0.18); padding:10px 4px; text-align:center; }
+  .stat .label { font-size:10px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; }
+  .stat .value { font-size:14px; font-weight:600; margin-top:4px; letter-spacing:-0.2px; }
   .empty { grid-column:1/-1; color:#b7b7b2; font-size:14px; padding:20px 0; text-align:center; }
   .chartWrap { position:relative; height:280px; }
   #loadError { color:#e24b4a; font-size:13px; margin-bottom:12px; }
+  .disclosure { display:flex; align-items:center; justify-content:space-between; padding:12px 2px 10px; margin-top:6px; border-top:0.5px solid rgba(255,255,255,0.10); cursor:pointer; user-select:none; }
+  .disclosure .label { font-size:14px; color:#e4e4e0; }
+  .disclosure .meta { display:flex; align-items:center; gap:6px; }
+  .disclosure .count { background:rgba(127,119,221,0.25); color:#cec9f8; font-size:12px; font-weight:600; padding:2px 8px; border-radius:999px; }
+  .chevron { width:9px; height:9px; border-right:1.5px solid #8a8a86; border-bottom:1.5px solid #8a8a86; transform:rotate(-45deg); transition:transform 0.2s ease; margin-right:2px; }
+  .disclosure.open .chevron { transform:rotate(45deg); margin-top:-4px; }
+  .pickerWrap { max-height:0; opacity:0; overflow:hidden; transition:max-height 0.25s ease, opacity 0.2s ease; }
+  .pickerWrap.open { max-height:220px; opacity:1; margin-top:8px; }
+  .picker { max-height:220px; overflow-y:auto; background:rgba(0,0,0,0.2); border:0.5px solid rgba(255,255,255,0.12); border-radius:10px; padding:6px 8px; }
+
+  .rd-mobile-only { display:none; }
+  .rdDayHeader { font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.6px; margin:16px 6px 5px; }
+  .rdDayHeader:first-child { margin-top:0; }
+  .rdDayCard { background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,0.12); overflow:hidden; }
+  .rdEntry { display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:0.5px solid rgba(255,255,255,0.07); }
+  .rdEntry:last-child { border-bottom:none; }
+  .rdIconBadge { flex-shrink:0; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .rdBody { flex:1; min-width:0; }
+  .rdTopRow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .rdPrimary { font-size:15px; font-weight:600; color:#e4e4e0; letter-spacing:-0.3px; word-wrap:break-word; }
+  .rdMeta { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .rdBgPill { font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
+  .rdTime { font-size:10.5px; font-weight:500; color:#6e6d68; white-space:nowrap; }
+  .rdChips { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+  .rdChip { font-size:10px; font-weight:500; padding:2px 7px; border-radius:999px; }
+  .rdChip.tag { background:rgba(93,202,165,0.14); color:#94ddc4; }
+  .rdChip.link { background:rgba(127,119,221,0.14); color:#bcb4f0; }
+  .rdActions { display:flex; gap:0px; margin-left:4px; }
+  .rdActions button { background:transparent; border:none; cursor:pointer; padding:4px; opacity:0.55; }
+  @media (max-width:899px) {
+    .rd-desktop-only { display:none; }
+    .rd-mobile-only { display:block; }
+  }
+  #rdModalOverlay { align-items:flex-end; }
+  #rdModalCard { max-width:480px; max-height:88vh; border-radius:20px 20px 0 0; }
+  @media (min-width:900px) {
+    #rdModalOverlay { align-items:flex-start; padding-top:30vh; }
+    #rdModalCard { border-radius:20px; max-width:640px; max-height:65vh; }
+  }
+  .rdRowClickable { cursor:pointer; }
+  #rdBody tr:hover { background:rgba(255,255,255,0.04); }
   @media (max-width:899px) {
     #viewRuweData table, #viewRuweData thead, #viewRuweData tbody, #viewRuweData th {
       display: block;
@@ -36,11 +76,12 @@
       align-items: baseline;
       column-gap: 16px;
       row-gap: 2px;
-      border: 1px solid #2c2c2e;
-      border-radius: 8px;
+      border: 0.5px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
       margin-bottom: 10px;
-      padding: 8px;
-      background: rgba(44,44,46,0.4);
+      padding: 10px;
+      background: rgba(28,28,30,0.5);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     }
     #viewRuweData td {
       display: block;
@@ -58,15 +99,14 @@
       margin-bottom: 2px;
     }
     #viewRuweData td[data-label="Tijd"] { order: 1; }
-    .rd-who-col { display: none; }
-    #viewRuweData td[data-label="Type"] { order: 2; }
-    #viewRuweData td[data-label="Aantal"] { order: 3; }
+    #viewRuweData td[data-label="Aantal"] { order: 2; }
+    #viewRuweData td[data-label="Type"] { order: 3; }
     #viewRuweData td[data-label="Beschrijving"] { order: 4; flex-basis: 100%; }
-    #viewRuweData td[data-label="Tags"] { order: 5; flex-basis: 100%; }
-    #viewRuweData td[data-label="Context"] { order: 6; flex-basis: 100%; }
-    #viewRuweData td[data-label="Gekoppeld"] { order: 6; flex-basis: 100%; }
+    #viewRuweData td[data-label="Context"] { order: 5; flex-basis: 100%; }
+    #viewRuweData td[data-label="Tags"] { order: 6; flex-basis: 100%; }
+    #viewRuweData td[data-label="Gekoppeld"] { order: 7; flex-basis: 100%; }
     #viewRuweData td.rd-actions {
-      order: 7;
+      order: 8;
       flex-basis: 100%;
       display: flex;
       gap: 8px;
@@ -80,6 +120,8 @@
     select, input { font-size:15px; padding:12px 16px; }
     #daySelect { font-size:13px; padding:8px 10px; }
     input[type="time"] { font-size:13px; padding:8px 10px; }
+    #homeTileGrid { grid-template-columns: repeat(6, 1fr) !important; gap:8px !important; }
+    .homeWideTile { grid-column: span 6 !important; }
     .grid { grid-template-columns:repeat(6,1fr); gap:8px; margin:16px 0; }
     .stat { padding:6px 4px; }
     .stat .label { font-size:11px; }
@@ -95,20 +137,21 @@
 <div id="loadError"></div>
 
 <div style="display:flex; gap:8px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
-  <button id="tabGrafiek" onclick="showTab('grafiek')" title="Grafiek" style="width:40px; height:40px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69s-5.66 6.28-5.66 10.15a5.66 5.66 0 1 0 11.32 0C17.66 8.97 12 2.69 12 2.69z"></path></svg></button>
+  <button id="tabHome" onclick="showTab('home')" title="Home" style="width:40px; height:40px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69s-5.66 6.28-5.66 10.15a5.66 5.66 0 1 0 11.32 0C17.66 8.97 12 2.69 12 2.69z"></path></svg></button>
+  <button id="tabGrafiek" onclick="showTab('log')" title="Log" style="width:40px; height:40px; background:transparent; color:#b7b7b2; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
   <button id="tabHoogtepunten" onclick="showTab('hoogtepunten')" title="Analyse" style="width:40px; height:40px; background:transparent; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"></circle><line x1="21" y1="21" x2="15.5" y2="15.5"></line><line x1="7" y1="11" x2="7" y2="8"></line><line x1="10" y1="11" x2="10" y2="6"></line><line x1="13" y1="11" x2="13" y2="9"></line></svg></button>
   <button id="tabRuweData" onclick="showTab('ruwedata')" title="Ruwe data" style="width:40px; height:40px; background:transparent; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 8 12 12 14 17 8 21 4"></polyline><line x1="4" y1="20" x2="4" y2="14"></line><line x1="9" y1="20" x2="9" y2="10"></line><line x1="14" y1="20" x2="14" y2="16"></line><line x1="19" y1="20" x2="19" y2="12"></line></svg></button>
-  <button id="refreshBtn" onclick="manualRefresh()" title="Ververs" style="margin-left:auto; width:40px; height:40px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:0; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center;">↻</button>
+  <a id="exportLink" href="#" target="_blank" title="Data-export voor AI" style="margin-left:auto; width:40px; height:40px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:0; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; text-decoration:none;">&#128196;</a>
+  <button id="refreshBtn" onclick="manualRefresh()" title="Ververs" style="margin-left:8px; width:40px; height:40px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:0; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center;">↻</button>
 </div>
 
 <div id="viewGrafiek">
-  <div id="bgHeader" style="text-align:center; margin-bottom:8px; background:rgba(44,44,46,0.75); border-radius:10px; padding:12px;">
+  <div id="bgHeader" style="text-align:center; margin-bottom:8px; background:rgba(28,28,30,0.55); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.12); border-radius:20px; box-shadow:0 8px 30px rgba(0,0,0,0.25); padding:16px 12px;">
     <div style="font-size:13px; color:#b7b7b2;"><span id="bgAgo">-</span> &nbsp;&nbsp; <span id="bgDelta">-</span></div>
     <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:2px;">
-      <span id="bgValue" style="font-size:52px; font-weight:600;">-</span>
-      <span id="bgArrow" style="font-size:38px; font-weight:600;"></span>
+      <span id="bgValue" style="font-size:56px; font-weight:500; letter-spacing:-2px;">-</span>
+      <span id="bgArrow" style="font-size:38px; font-weight:500; margin-left:4px;"></span>
     </div>
-    <div style="font-size:12px; color:#b7b7b2; margin-top:6px;">Sensor: <span id="sensorAge" style="font-weight:500;">-</span></div>
   </div>
 
   <div class="chartWrap">
@@ -132,24 +175,102 @@
     </div>
   </div>
 
-  <div style="display:flex; align-items:center; gap:12px; margin:12px 0;">
-    <div class="grid" id="statGrid" style="flex:1; margin:0;"></div>
-    <div id="rangePie" style="width:68px; height:68px; border-radius:50%; flex-shrink:0;"></div>
+  <div class="grid" id="statGrid" style="margin:12px 0;"></div>
+
+  <div id="homeTilesSection">
+    <div class="grid" id="homeTileGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0;">
+
+      <div class="card" style="grid-column:span 3; height:230px; overflow:hidden; display:flex; flex-direction:column; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between;">
+          <span id="iobPageLabel" style="font-size:10px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">IOB</span>
+          <span id="iobPageStat" style="font-size:11px; color:#8a8a86;">actief nu: <span id="iobNowVal" style="font-size:15px; font-weight:600; color:#7f77dd;">-</span></span>
+        </div>
+        <div id="iobActivityViewport" style="flex:1; overflow:hidden; margin-top:2px;">
+          <div id="iobActivityTrack" style="display:flex; width:200%; height:100%; transition:transform 0.25s ease;">
+            <div style="width:50%; height:100%; flex-shrink:0; box-sizing:border-box; padding-right:4px;"><canvas id="iobChart"></canvas></div>
+            <div style="width:50%; height:100%; flex-shrink:0; box-sizing:border-box; padding-left:4px;"><canvas id="activityChart"></canvas></div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:center; gap:5px; margin-top:4px;">
+          <span class="iobPageDot" data-idx="0" onclick="setIobPage(0)" style="width:5px; height:5px; border-radius:50%; background:#7f77dd; cursor:pointer;"></span>
+          <span class="iobPageDot" data-idx="1" onclick="setIobPage(1)" style="width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.2); cursor:pointer;"></span>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column:span 2; height:230px; overflow:hidden; display:flex; flex-direction:column; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
+        <div style="font-size:10px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">COB</div>
+        <div style="flex:1; display:flex; align-items:flex-end; margin-top:4px;">
+          <svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:100%; height:100%;">
+            <line x1="50" y1="0" x2="50" y2="50" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3,3"/>
+            <path d="M0,48 C25,47 35,20 50,15 C70,8 85,25 100,42" fill="none" stroke="#d85a30" stroke-width="1.5"/>
+            <circle cx="50" cy="15" r="2.5" fill="#d85a30"/>
+          </svg>
+        </div>
+        <div style="font-size:11px; color:#75746f; margin-top:2px; font-style:italic;">Placeholder — khd+vet/eiwit-model volgt</div>
+      </div>
+
+      <div class="card" style="aspect-ratio:1/1; align-self:start; display:flex; flex-direction:column; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+          <div style="font-size:10px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">Laatste bolus</div>
+          <div id="homeLastBolusVal" style="font-size:22px; font-weight:600; letter-spacing:-0.4px;">-</div>
+          <div id="homeLastBolusSub" style="font-size:11px; color:#75746f; margin-top:1px;">-</div>
+        </div>
+        <div style="height:0.5px; background:rgba(255,255,255,0.12); margin:6px 0;"></div>
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+          <div style="font-size:10px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">Laatste maaltijd</div>
+          <div id="homeLastMealVal" style="font-size:22px; font-weight:600; letter-spacing:-0.4px;">-</div>
+          <div id="homeLastMealSub" style="font-size:11px; color:#75746f; margin-top:1px;">-</div>
+        </div>
+      </div>
+
+      <div class="card" style="aspect-ratio:1/1; align-self:start; display:flex; flex-direction:column; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
+        <div style="position:relative; flex:1; display:flex; align-items:center; justify-content:center;">
+          <div id="homeRing" style="width:104px; height:104px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+            <div style="width:70px; height:70px; border-radius:50%; background:#1c1c1e; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+              <div id="homeRingPct" style="font-size:22px; font-weight:700; color:#5dcaa5; letter-spacing:-0.5px;">-</div>
+              <div style="font-size:8px; color:#8a8a86; text-transform:uppercase; letter-spacing:0.3px;">In range</div>
+            </div>
+          </div>
+        </div>
+        <div id="homeRingLegend" style="display:flex; justify-content:center; gap:10px; font-size:10px; color:#b7b7b2; margin-top:8px;"></div>
+      </div>
+
+      <div class="card homeWideTile" style="grid-column:span 2; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
+        <div style="display:flex; align-items:center; justify-content:flex-end;">
+          <div class="pillRow" style="width:auto;">
+            <button type="button" class="dayBtn homeTrendBtn" data-hours="6" onclick="selectHomeTrend(6, this)">6u</button>
+            <button type="button" class="dayBtn homeTrendBtn" data-hours="12" onclick="selectHomeTrend(12, this)">12u</button>
+            <button type="button" class="dayBtn homeTrendBtn" data-hours="24" onclick="selectHomeTrend(24, this)">24u</button>
+            <button type="button" class="dayBtn homeTrendBtn dayBtnActive" data-hours="168" onclick="selectHomeTrend(168, this)">7d</button>
+          </div>
+        </div>
+        <canvas id="homeTrendChart" height="70" style="margin-top:6px;"></canvas>
+      </div>
+
+      <div class="card homeWideTile" style="grid-column:span 2; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between;">
+          <span style="font-size:10px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">Insulinegevoeligheid — koolhydraten per eenheid</span>
+          <span style="font-size:9px; color:#75746f;">alleen gekoppelde maaltijden, inclusief gekoppelde correcties</span>
+        </div>
+        <canvas id="icrChart" height="80" style="margin-top:6px;"></canvas>
+      </div>
+
+    </div>
   </div>
 
-  <div style="background:rgba(44,44,46,0.6); border-radius:8px; padding:12px; margin:16px 0;">
+  <div id="logPanelsSection" style="display:none; background:rgba(28,28,30,0.55); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.12); border-radius:20px; box-shadow:0 8px 30px rgba(0,0,0,0.25); padding:16px 18px; margin:16px 0;">
     <div style="display:flex; justify-content:space-around; align-items:center; padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid #45454a;">
       <button type="button" onclick="setLogTab(0)" class="logTabBtn" data-idx="0" style="background:transparent; border:none; cursor:pointer; padding:6px 12px; display:flex; flex-direction:column; align-items:center; gap:4px;">
         <svg width="18" height="18" viewBox="0 0 20 20"><polygon points="10,2 18,17 2,17" fill="#7f77dd"/></svg>
-        <span style="font-size:11px; color:#b7b7b2;">Bolus</span>
+        <span style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">Bolus</span>
       </button>
       <button type="button" onclick="setLogTab(1)" class="logTabBtn" data-idx="1" style="background:transparent; border:none; cursor:pointer; padding:6px 12px; display:flex; flex-direction:column; align-items:center; gap:4px;">
         <svg width="18" height="18" viewBox="0 0 20 20"><rect x="4.5" y="4.5" width="11" height="11" fill="#d85a30" transform="rotate(45 10 10)"/></svg>
-        <span style="font-size:11px; color:#b7b7b2;">KHD</span>
+        <span style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">KHD</span>
       </button>
       <button type="button" onclick="setLogTab(2)" class="logTabBtn" data-idx="2" style="background:transparent; border:none; cursor:pointer; padding:6px 12px; display:flex; flex-direction:column; align-items:center; gap:4px;">
         <svg width="18" height="18" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="#7edf54"/></svg>
-        <span style="font-size:11px; color:#b7b7b2;">Beweging</span>
+        <span style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">Beweging</span>
       </button>
     </div>
 
@@ -158,67 +279,79 @@
 
         <div style="width:33.333%; flex-shrink:0; padding:0 2px; box-sizing:border-box;">
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <input id="qbUnits" type="number" placeholder="Eenheden (E)" style="flex:1; min-width:100px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
-            <select id="qbType" style="flex:1; min-width:120px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+            <input id="qbUnits" type="number" placeholder="Eenheden (E)" style="flex:1; min-width:100px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
+            <select id="qbType" style="flex:1; min-width:120px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
               <option value="regulier">Regulier</option>
               <option value="pre-bolus">Pre-bolus</option>
               <option value="correctie">Correctie</option>
               <option value="na-bolus">Na-bolus</option>
             </select>
-            <input id="qbReason" type="text" placeholder="Reden (optioneel)" style="flex:2; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+            <div style="position:relative; flex:2; min-width:140px;"><input id="qbReason" type="text" placeholder="Reden (optioneel, @tag om te taggen)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;"><div id="qbReasonAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
-            <input id="qbDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
-            <input id="qbTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
-            <button type="button" onclick="setNow('qb')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
-            <button onclick="quickBolus()" style="background:#7f77dd; color:#1a1730; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+            <input id="qbDateOnly" type="date" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px;">
+            <input id="qbTimeOnly" type="time" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
+            <button type="button" onclick="setNow('qb')" style="background:rgba(255,255,255,0.10); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 12px; font-weight:500; cursor:pointer;">Nu</button>
+            <button onclick="quickBolus()" style="background:#7f77dd; color:#1a1730; border:none; border-radius:10px; padding:8px 18px; font-weight:600; cursor:pointer; margin-left:auto;">Log</button>
           </div>
-          <div style="margin-top:8px;">
-            <div style="font-size:11px; color:#b7b7b2; margin-bottom:4px;">Koppel aan (laatste 8u, optioneel)</div>
-            <div id="qbLinkPicker" style="max-height:110px; overflow-y:auto; border:1px solid #45454a; border-radius:6px; padding:6px 8px; background:#1c1c1e;"></div>
+          <div class="disclosure" id="qbDisclosure" onclick="toggleLinkDisclosure('qb')">
+            <span class="label">Koppel aan</span>
+            <div class="meta"><span class="count" id="qbLinkCount" style="display:none;">0</span><span class="chevron"></span></div>
           </div>
-          <div id="qbStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
+          <div class="pickerWrap" id="qbPickerWrap">
+            <div class="picker" id="qbLinkPicker"></div>
+          </div>
+          <div id="qbStatus" style="font-size:13px; color:#b7b7b2; margin-top:6px;"></div>
         </div>
 
         <div style="width:33.333%; flex-shrink:0; padding:0 2px; box-sizing:border-box;">
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <input id="qlDesc" type="text" placeholder="Wat heb je gegeten?" style="flex:2; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
-            <input id="qlCarbs" type="number" placeholder="khd (optioneel)" style="flex:1; min-width:100px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+            <div style="position:relative; flex:2; min-width:140px;"><input id="qlDesc" type="text" placeholder="Wat heb je gegeten? (@tag om te taggen)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;"><div id="qlDescAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
+            <input id="qlCarbs" type="number" placeholder="khd (optioneel)" style="flex:1; min-width:100px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <input id="qlContext" type="text" placeholder="Context (optioneel)" style="flex:1; min-width:140px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
-            <input id="qlDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
-            <input id="qlTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
-            <button type="button" onclick="setNow('ql')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
-            <button onclick="quickLog()" style="background:#d85a30; color:#341507; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+            <input id="qlDateOnly" type="date" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px;">
+            <input id="qlTimeOnly" type="time" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
+            <button type="button" onclick="setNow('ql')" style="background:rgba(255,255,255,0.10); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 12px; font-weight:500; cursor:pointer;">Nu</button>
+            <button onclick="quickLog()" style="background:#d85a30; color:#341507; border:none; border-radius:10px; padding:8px 18px; font-weight:600; cursor:pointer; margin-left:auto;">Log</button>
           </div>
-          <div style="margin-top:8px;">
-            <div style="font-size:11px; color:#b7b7b2; margin-bottom:4px;">Koppel aan (laatste 8u, optioneel)</div>
-            <div id="qlLinkPicker" style="max-height:110px; overflow-y:auto; border:1px solid #45454a; border-radius:6px; padding:6px 8px; background:#1c1c1e;"></div>
+          <div class="disclosure" id="qlDisclosure" onclick="toggleLinkDisclosure('ql')">
+            <span class="label">Koppel aan</span>
+            <div class="meta"><span class="count" id="qlLinkCount" style="display:none;">0</span><span class="chevron"></span></div>
           </div>
-          <div id="qlStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
+          <div class="pickerWrap" id="qlPickerWrap">
+            <div class="picker" id="qlLinkPicker"></div>
+          </div>
+          <div id="qlStatus" style="font-size:13px; color:#b7b7b2; margin-top:6px;"></div>
         </div>
 
         <div style="width:33.333%; flex-shrink:0; padding:0 2px; box-sizing:border-box;">
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <select id="qeType" style="flex:1; min-width:140px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+            <select id="qeType" style="flex:1; min-width:140px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
               <option value="Duursport">Duursport</option>
               <option value="HIIT">HIIT</option>
               <option value="Krachttraining">Krachttraining</option>
             </select>
-            <input id="qeActivity" type="text" placeholder="Activiteit (bijv. hardlopen, boksen)" style="flex:2; min-width:160px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
-            <input id="qeDuration" type="number" placeholder="Duur (min, optioneel)" style="flex:1; min-width:120px; background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
+            <div style="position:relative; flex:2; min-width:140px;"><input id="qeActivity" type="text" placeholder="Activiteit (bijv. hardlopen, @tag)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;"><div id="qeActivityAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
+            <input id="qeDuration" type="number" placeholder="Duur (min, optioneel)" style="flex:1; min-width:120px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
-            <input id="qeDateOnly" type="date" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px; font-size:12px;">
-            <input id="qeTimeOnly" type="time" style="background:#2c2c2e; color:#e4e4e0; border:1px solid #45454a; border-radius:6px; padding:8px 10px;">
-            <button type="button" onclick="setNow('qe')" style="background:#45454a; color:#e4e4e0; border:none; border-radius:6px; padding:8px 12px; cursor:pointer;">Nu</button>
-            <button onclick="quickExercise()" style="background:#7edf54; color:#173006; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; margin-left:auto;">Log</button>
+            <input id="qeDateOnly" type="date" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px;">
+            <input id="qeTimeOnly" type="time" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
+            <button type="button" onclick="setNow('qe')" style="background:rgba(255,255,255,0.10); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 12px; font-weight:500; cursor:pointer;">Nu</button>
+            <button onclick="quickExercise()" style="background:#7edf54; color:#173006; border:none; border-radius:10px; padding:8px 18px; font-weight:600; cursor:pointer; margin-left:auto;">Log</button>
           </div>
-          <div style="margin-top:8px;">
-            <div style="font-size:11px; color:#b7b7b2; margin-bottom:4px;">Koppel aan (laatste 8u, optioneel)</div>
-            <div id="qeLinkPicker" style="max-height:110px; overflow-y:auto; border:1px solid #45454a; border-radius:6px; padding:6px 8px; background:#1c1c1e;"></div>
+          <div class="disclosure" id="qeDisclosure" onclick="toggleLinkDisclosure('qe')">
+            <span class="label">Koppel aan</span>
+            <div class="meta"><span class="count" id="qeLinkCount" style="display:none;">0</span><span class="chevron"></span></div>
           </div>
-          <div id="qeStatus" style="font-size:12px; color:#b7b7b2; margin-top:6px;"></div>
+          <div class="pickerWrap" id="qePickerWrap">
+            <div class="picker" id="qeLinkPicker"></div>
+          </div>
+          <div id="qeStatus" style="font-size:13px; color:#b7b7b2; margin-top:6px;"></div>
         </div>
 
       </div>
@@ -245,39 +378,42 @@
     <option value="bolus">Alleen bolus</option>
     <option value="beweging">Alleen beweging</option>
   </select>
-  <div style="overflow-x:auto; margin-top:12px;">
+  <div class="rd-desktop-only" style="margin-top:12px; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.15); overflow:hidden;">
+    <div style="overflow-x:auto;">
     <table style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">
       <colgroup>
         <col style="width:7%">
-        <col style="width:17%">
-        <col style="width:8%">
-        <col style="width:8%" class="rd-who-col">
+        <col style="width:20%">
         <col style="width:6%">
+        <col style="width:10%">
+        <col style="width:26%">
         <col style="width:11%">
-        <col style="width:23%">
         <col style="width:14%">
         <col style="width:6%">
       </colgroup>
       <thead>
-        <tr style="text-align:left; border-bottom:1px solid #45454a; color:#b7b7b2;">
-          <th style="padding:6px 8px;">Tijd</th>
-          <th style="padding:6px 8px;">Beschrijving</th>
-          <th style="padding:6px 8px;">Type</th>
-          <th style="padding:6px 8px;" class="rd-who-col">Wie</th>
-          <th style="padding:6px 8px;">Aantal</th>
-          <th style="padding:6px 8px;">Tags</th>
-          <th style="padding:6px 8px;">Context</th>
-          <th style="padding:6px 8px;">Gekoppeld</th>
-          <th style="padding:6px 8px;">Actie</th>
+        <tr style="text-align:left; border-bottom:0.5px solid rgba(255,255,255,0.10); color:#8a8a86;">
+          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Tijd</th>
+          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Beschrijving</th>
+          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Aantal</th>
+          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Type</th>
+          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Context</th>
+          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Tags</th>
+          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Gekoppeld</th>
+          <th style="padding:10px 12px;"></th>
         </tr>
       </thead>
       <tbody id="rdBody"></tbody>
     </table>
+    </div>
   </div>
-  <label style="display:inline-flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#b7b7b2; cursor:pointer;">
-    <input type="checkbox" id="rdWhoToggle" onchange="toggleWhoColumn()">
-    Toon "Wie"-kolom
-  </label>
+  <div id="rdCards" class="rd-mobile-only" style="margin-top:12px;"></div>
+</div>
+
+<div id="rdModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:100; justify-content:center;" onclick="if(event.target===this) closeRdModal();">
+  <div id="rdModalCard" style="width:100%; overflow-y:auto; background:rgba(28,28,30,0.92); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border:0.5px solid rgba(255,255,255,0.14); box-shadow:0 -8px 40px rgba(0,0,0,0.4); padding:18px;">
+    <div id="rdModalContent"></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -297,6 +433,7 @@ const API_LINK = '/api/link';
 const urlParams = new URLSearchParams(window.location.search);
 const READ_KEY = urlParams.get('read') || '';
 const WRITE_KEY = urlParams.get('write') || '';
+document.getElementById('exportLink').href = '/export?key=' + encodeURIComponent(READ_KEY) + '&days=14';
 
 let DATA = { glucose: [], treatments: [], meals: [], exercises: [] };
 
@@ -321,13 +458,84 @@ function rebuildDaySelect(){
   }
 }
 
+function extractTags(text){
+  const re = /@([a-zA-Z0-9\-]+)/g;
+  const tags = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    tags.push(m[1].toLowerCase());
+  }
+  const clean = text.replace(/@/g, '').replace(/\s+/g, ' ').trim();
+  return { clean, tags: [...new Set(tags)] };
+}
+
+function findActiveAtToken(input){
+  const pos = input.selectionStart;
+  const val = input.value;
+  const upToCursor = val.slice(0, pos);
+  const m = upToCursor.match(/@([a-zA-Z0-9\-]*)$/);
+  if (!m) return null;
+  return { partial: m[1].toLowerCase(), start: m.index, end: pos };
+}
+
+function attachTagAutocomplete(inputId){
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(inputId + 'Autocomplete');
+  if (!input || !dropdown) return;
+
+  function render(){
+    const token = findActiveAtToken(input);
+    if (!token) { dropdown.style.display = 'none'; return; }
+    const all = DATA.tagFrequency || [];
+    const matches = all.filter(t => t.tag.startsWith(token.partial)).slice(0, 6);
+    if (!matches.length) { dropdown.style.display = 'none'; return; }
+    dropdown.innerHTML = matches.map(t =>
+      '<div class="acItem" data-tag="' + t.tag + '" style="padding:8px 10px; font-size:13px; cursor:pointer;">' + t.tag + '</div>'
+    ).join('');
+    dropdown.style.display = 'block';
+    dropdown.querySelectorAll('.acItem').forEach(el => {
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const tag = el.dataset.tag;
+        const val = input.value;
+        input.value = val.slice(0, token.start) + '@' + tag + ' ' + val.slice(token.end);
+        const newPos = token.start + tag.length + 2;
+        input.focus();
+        input.setSelectionRange(newPos, newPos);
+        dropdown.style.display = 'none';
+      });
+      el.addEventListener('mouseenter', () => { el.style.background = 'rgba(255,255,255,0.08)'; });
+      el.addEventListener('mouseleave', () => { el.style.background = 'transparent'; });
+    });
+  }
+
+  input.addEventListener('input', render);
+  input.addEventListener('keyup', render);
+  input.addEventListener('click', render);
+  input.addEventListener('blur', () => { setTimeout(() => { dropdown.style.display = 'none'; }, 150); });
+}
+
+function toggleLinkDisclosure(prefix){
+  document.getElementById(prefix + 'Disclosure').classList.toggle('open');
+  document.getElementById(prefix + 'PickerWrap').classList.toggle('open');
+}
+
+function updateLinkCount(prefix){
+  const picker = document.getElementById(prefix + 'LinkPicker');
+  const countEl = document.getElementById(prefix + 'LinkCount');
+  if (!picker || !countEl) return;
+  const n = picker.querySelectorAll('input[type="checkbox"]:checked').length;
+  countEl.textContent = n;
+  countEl.style.display = n > 0 ? '' : 'none';
+}
+
 function getCheckedLinkIds(containerId){
   const el = document.getElementById(containerId);
   if (!el) return new Set();
   return new Set([...el.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value));
 }
 
-function groupedLinkPickerHtml(checkedIds){
+function groupedLinkPickerHtml(checkedIds, prefix){
   const cutoff = Date.now() - 8*3600000;
   const entries = (DATA.foodLogRaw||[]).filter(r => new Date(r.ts).getTime() >= cutoff);
   const groups = { bolus: [], khd: [], beweging: [] };
@@ -341,15 +549,15 @@ function groupedLinkPickerHtml(checkedIds){
   let html = '';
   ['bolus','khd','beweging'].forEach(t => {
     if (!groups[t].length) return;
-    html += '<div style="font-size:11px; color:#8a8a86; margin-top:4px; text-transform:uppercase;">' + labels[t] + '</div>';
+    html += '<div style="font-size:10px; font-weight:600; color:#8a8a86; margin-top:6px; text-transform:uppercase; letter-spacing:0.5px;">' + labels[t] + '</div>';
     groups[t].forEach(r => {
-      html += '<label style="display:block; font-size:12px; padding:2px 0; cursor:pointer;">' +
-        '<input type="checkbox" value="' + r.id + '"' + (checkedIds.has(String(r.id)) ? ' checked' : '') + '> ' +
+      html += '<label style="display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0; cursor:pointer;">' +
+        '<input type="checkbox" value="' + r.id + '"' + (checkedIds.has(String(r.id)) ? ' checked' : '') + ' onchange="updateLinkCount(\'' + prefix + '\')"> ' +
         fmtTime(r.ts) + ' · ' + (r.desc||'') +
       '</label>';
     });
   });
-  return html || '<div style="font-size:12px; color:#b7b7b2;">Nog geen entries in de afgelopen 8 uur.</div>';
+  return html || '<div style="font-size:13px; color:#b7b7b2;">Nog geen entries in de afgelopen 8 uur.</div>';
 }
 
 function renderLinkPickers(){
@@ -358,7 +566,8 @@ function renderLinkPickers(){
     const el = document.getElementById(containerId);
     if (!el) return;
     const checked = getCheckedLinkIds(containerId);
-    el.innerHTML = groupedLinkPickerHtml(checked);
+    el.innerHTML = groupedLinkPickerHtml(checked, prefix);
+    updateLinkCount(prefix);
   });
 }
 
@@ -383,6 +592,7 @@ async function loadData(){
     render();
     renderLinkPickers();
     if (document.getElementById('viewHoogtepunten').style.display !== 'none') renderHighlights();
+    if (document.getElementById('homeTilesSection').style.display !== 'none') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrChart(); }
   } catch (err) {
     errBox.textContent = 'Kon data niet ophalen: ' + err.message;
   }
@@ -409,6 +619,15 @@ function selectMode(mode, btn){
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}); }
 function fmtDayTime(ts){ return new Date(ts).toLocaleDateString('nl-NL', {day:'numeric', month:'short'}) + ' ' + fmtTime(ts); }
 function zoneColor(v){ if (v < 3.9) return '#e24b4a'; if (v > 10.0) return '#efa000'; return '#5dcaa5'; }
+function dayLabel(ts){
+  const d = new Date(ts);
+  const today = new Date();
+  const yest = new Date(); yest.setDate(today.getDate() - 1);
+  const sameDay = (a, b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  if (sameDay(d, today)) return 'Vandaag';
+  if (sameDay(d, yest)) return 'Gisteren';
+  return d.toLocaleDateString('nl-NL', {day:'numeric', month:'long'});
+}
 
 function computeStats(pts){
   if (!pts.length) return null;
@@ -493,27 +712,6 @@ function renderBgHeader(){
 
   const minsAgo = Math.round((Date.now() - new Date(last.ts)) / 60000);
   agoEl.textContent = minsAgo <= 0 ? 'Nu' : minsAgo + ' min geleden';
-
-  const sensorEl = document.getElementById('sensorAge');
-  if (sensorEl){
-    if (!DATA.sensorStart){
-      sensorEl.textContent = 'onbekend';
-      sensorEl.style.color = '#b7b7b2';
-    } else {
-      const LIBRE2_LIFESPAN_MS = 14 * 24 * 3600000;
-      const ageMs = Date.now() - new Date(DATA.sensorStart).getTime();
-      const remainingMs = LIBRE2_LIFESPAN_MS - ageMs;
-      if (remainingMs <= 0){
-        sensorEl.textContent = 'verlopen';
-        sensorEl.style.color = '#e24b4a';
-      } else {
-        const days = Math.floor(remainingMs / 86400000);
-        const hours = Math.floor((remainingMs % 86400000) / 3600000);
-        sensorEl.textContent = 'nog ' + days + 'd ' + hours + 'u';
-        sensorEl.style.color = remainingMs < 24*3600000 ? '#e0a030' : '#b7b7b2';
-      }
-    }
-  }
 }
 
 let currentKpiPeriod = 'today';
@@ -523,6 +721,7 @@ function selectKpiPeriod(period, btn){
   document.querySelectorAll('.dayBtn[data-kpi]').forEach(b => b.classList.remove('dayBtnActive'));
   btn.classList.add('dayBtnActive');
   renderStatGrid();
+  if (document.getElementById('homeTilesSection').style.display !== 'none') renderHomeTiles();
 }
 
 function renderStatGrid(){
@@ -547,17 +746,14 @@ function renderStatGrid(){
     statGrid.innerHTML = '<div class="empty">Nog geen glucosedata voor deze periode.</div>';
     return;
   }
+  const statColors = { 'Low': '#e24b4a', 'In range': '#5dcaa5', 'High': '#efa000' };
   [['Low', s.below+'%'], ['In range', s.tir+'%'], ['High', s.above+'%'], ['Gemiddelde', s.avg+' mmol/L'], ['HbA1c', s.hba1c+'%'], ['CV', s.cv+'%']].forEach(([label,val]) => {
     const card = document.createElement('div');
     card.className = 'stat';
-    card.innerHTML = '<div class="label">'+label+'</div><div class="value">'+val+'</div>';
+    const colorStyle = statColors[label] ? ' style="color:' + statColors[label] + ';"' : '';
+    card.innerHTML = '<div class="label">'+label+'</div><div class="value"'+colorStyle+'>'+val+'</div>';
     statGrid.appendChild(card);
   });
-
-  const pie = document.getElementById('rangePie');
-  const p1 = s.below;
-  const p2 = s.below + s.tir;
-  pie.style.background = 'conic-gradient(#e24b4a 0% ' + p1 + '%, #5dcaa5 ' + p1 + '% ' + p2 + '%, #efa000 ' + p2 + '% 100%)';
 }
 
 function render(){
@@ -714,30 +910,35 @@ async function applyPickedLinks(prefix, newId){
 }
 
 async function quickLog(){
-  const desc = document.getElementById('qlDesc').value.trim();
+  const descRaw = document.getElementById('qlDesc').value.trim();
   const carbs = document.getElementById('qlCarbs').value.trim();
+  const context = document.getElementById('qlContext').value.trim();
   const ts = buildTs('ql', 'qlTimeOnly');
   const status = document.getElementById('qlStatus');
-  if (!desc){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
+  if (!descRaw){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
 
-  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const { clean: desc, tags: extractedTags } = extractTags(descRaw);
+  const tags = extractedTags.join(',');
+
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   const result = await sendLog(url, status);
   await applyPickedLinks('ql', result && result.id);
   document.getElementById('qlDesc').value = '';
   document.getElementById('qlCarbs').value = '';
+  document.getElementById('qlContext').value = '';
 }
 
 async function quickExercise(){
   const type = document.getElementById('qeType').value;
-  const activity = document.getElementById('qeActivity').value.trim();
+  const activityRaw = document.getElementById('qeActivity').value.trim();
   const duration = document.getElementById('qeDuration').value.trim();
   const ts = buildTs('qe', 'qeTimeOnly');
   const status = document.getElementById('qeStatus');
-  if (!activity){ status.textContent = 'Vul de activiteit in.'; return; }
+  if (!activityRaw){ status.textContent = 'Vul de activiteit in.'; return; }
 
-  const desc = activity;
+  const { clean: desc, tags: extractedTags } = extractTags(activityRaw);
   const tagSlug = type.toLowerCase();
-  const tags = tagSlug;
+  const tags = [tagSlug, ...extractedTags].join(',');
   const context = duration ? ('Duur: ' + duration + ' minuten.') : '';
 
   const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent(tags) + '&carbs=' + encodeURIComponent('0') + '&context=' + encodeURIComponent(context) + '&type=beweging' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
@@ -750,15 +951,16 @@ async function quickExercise(){
 async function quickBolus(){
   const units = document.getElementById('qbUnits').value.trim();
   const bolusType = document.getElementById('qbType').value;
-  const reason = document.getElementById('qbReason').value.trim();
+  const reasonRaw = document.getElementById('qbReason').value.trim();
   const ts = buildTs('qb', 'qbTimeOnly');
   const status = document.getElementById('qbStatus');
   if (!units){ status.textContent = 'Vul het aantal eenheden in.'; return; }
 
+  const { clean: context, tags: extractedTags } = extractTags(reasonRaw);
+  const tags = extractedTags.join(',');
   const desc = 'Bolus ' + units + 'E';
-  const context = reason || '';
 
-  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(units) + '&context=' + encodeURIComponent(context) + '&type=bolus' + '&bolusType=' + encodeURIComponent(bolusType) + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(units) + '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) + '&type=bolus' + '&bolusType=' + encodeURIComponent(bolusType) + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   const result = await sendLog(url, status);
   await applyPickedLinks('qb', result && result.id);
   document.getElementById('qbUnits').value = '';
@@ -790,13 +992,6 @@ function setNow(prefix){
   document.getElementById(prefix + 'TimeOnly').value = now.toISOString().slice(11,16);
 }
 
-function toggleWhoColumn(){
-  const show = document.getElementById('rdWhoToggle').checked;
-  document.querySelectorAll('.rd-who-col').forEach(el => {
-    el.style.display = show ? '' : 'none';
-  });
-}
-
 // Swipeable log-tabs: 0 = Bolus, 1 = KHD, 2 = Beweging
 let currentLogTab = 0;
 
@@ -809,6 +1004,34 @@ function setLogTab(idx){
     btn.querySelector('span').style.color = active ? '#e4e4e0' : '#b7b7b2';
   });
 }
+
+// Swipeable IOB/Activiteit-widget: 0 = IOB, 1 = Activiteit
+let currentIobPage = 0;
+
+function setIobPage(idx){
+  currentIobPage = Math.max(0, Math.min(1, idx));
+  document.getElementById('iobActivityTrack').style.transform = 'translateX(-' + (currentIobPage * 50) + '%)';
+  document.querySelectorAll('.iobPageDot').forEach(dot => {
+    const active = Number(dot.dataset.idx) === currentIobPage;
+    dot.style.background = active ? '#7f77dd' : 'rgba(255,255,255,0.2)';
+  });
+  document.getElementById('iobPageLabel').textContent = currentIobPage === 0 ? 'IOB' : 'Insuline-activiteit';
+  document.getElementById('iobPageStat').style.display = currentIobPage === 0 ? '' : 'none';
+}
+
+(function initIobSwipe(){
+  const viewport = document.getElementById('iobActivityViewport');
+  if (!viewport) return;
+  let startX = null;
+  viewport.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+  viewport.addEventListener('touchend', e => {
+    if (startX === null) return;
+    const deltaX = e.changedTouches[0].clientX - startX;
+    if (deltaX > 40) setIobPage(currentIobPage - 1);
+    else if (deltaX < -40) setIobPage(currentIobPage + 1);
+    startX = null;
+  }, { passive: true });
+})();
 
 (function initLogTabsSwipe(){
   const viewport = document.getElementById('logPanelsViewport');
@@ -833,24 +1056,452 @@ document.addEventListener('visibilitychange', () => {
 
 daySel.addEventListener('change', render);
 
+// ---- IOB: Loop/AndroidAPS-model (bi-exponentiële activiteitscurve) ----
+// DIA = werkingsduur, tp = piektijd, beide in minuten. Novorapid-profiel.
+const IOB_DIA = 210;
+const IOB_TP = 52.5;
+
+function iobFraction(tMin){
+  if (tMin <= 0) return 1;
+  if (tMin >= IOB_DIA) return 0;
+  const tau = IOB_TP * (1 - IOB_TP / IOB_DIA) / (1 - 2 * IOB_TP / IOB_DIA);
+  const a = 2 * tau / IOB_DIA;
+  const S = 1 / (1 - a + (1 + a) * Math.exp(-IOB_DIA / tau));
+  return 1 - S * (1 - a) * ((tMin * tMin / (tau * IOB_DIA * (1 - a)) - tMin / tau - 1) * Math.exp(-tMin / tau) + 1);
+}
+
+function totalIobAt(targetTime, boluses){
+  let total = 0;
+  boluses.forEach(b => {
+    const minsSince = (targetTime - new Date(b.ts).getTime()) / 60000;
+    if (minsSince >= 0 && minsSince < IOB_DIA) total += b.amount * iobFraction(minsSince);
+  });
+  return total;
+}
+
+// Activiteit = hoe snel IOB op dit moment daalt (numerieke afgeleide, zelfde onderliggende curve)
+function activityFraction(tMin){
+  if (tMin < 0 || tMin > IOB_DIA) return 0;
+  const d = 1; // 1 minuut-stap voor de afgeleide
+  return Math.max(0, (iobFraction(Math.max(0, tMin - d/2)) - iobFraction(Math.min(IOB_DIA, tMin + d/2))) / d);
+}
+
+function totalActivityAt(targetTime, boluses){
+  let total = 0;
+  boluses.forEach(b => {
+    const minsSince = (targetTime - new Date(b.ts).getTime()) / 60000;
+    if (minsSince >= 0 && minsSince < IOB_DIA) total += b.amount * activityFraction(minsSince);
+  });
+  return total;
+}
+
+let iobChartInstance = null;
+let activityChartInstance = null;
+
+function bolusMarkerData(now, boluses, stepMin, numPoints, windowMin){
+  const data = new Array(numPoints).fill(null);
+  const descs = new Array(numPoints).fill(null);
+  boluses.forEach(b => {
+    const offsetMin = (new Date(b.ts).getTime() - now) / 60000;
+    const idx = Math.round((offsetMin + windowMin) / stepMin);
+    if (idx >= 0 && idx < numPoints) {
+      data[idx] = 0;
+      descs[idx] = b.amount + 'E' + (b.bolusType ? ' · ' + b.bolusType : '') + ' · ' + fmtTime(b.ts);
+    }
+  });
+  return { data, descs };
+}
+
+const IOB_WINDOW_MIN = 300; // ±5 uur
+const IOB_STEP_MIN = 6;
+const IOB_POINTS_PER_HOUR = 60 / IOB_STEP_MIN;
+
+function hourTopLabelsPlugin(centerIdx){
+  return {
+    id: 'hourTopLabels',
+    afterDraw(chart){
+      const { ctx, scales, chartArea, data } = chart;
+      if (!scales.x) return;
+      const totalHours = IOB_WINDOW_MIN / 60;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      for (let h = -totalHours; h <= totalHours; h++) {
+        const idx = centerIdx + h * IOB_POINTS_PER_HOUR;
+        if (idx < 0 || idx >= data.labels.length) continue;
+        const x = scales.x.getPixelForValue(idx);
+        if (x == null || isNaN(x)) continue;
+        const label = h === 0 ? 'NU' : (h > 0 ? '+' + h : String(h));
+        ctx.font = h === 0 ? '600 9px -apple-system, sans-serif' : '9px -apple-system, sans-serif';
+        ctx.fillStyle = h === 0 ? '#e4e4e0' : '#75746f';
+        ctx.fillText(label, x, chartArea.top - 4);
+      }
+      ctx.restore();
+    }
+  };
+}
+
+function hourAxisTicks(axis){
+  axis.ticks = axis.ticks.filter(t => t.value % IOB_POINTS_PER_HOUR === 0);
+}
+
+function renderIobChart(){
+  const canvas = document.getElementById('iobChart');
+  if (!canvas) return;
+  const now = Date.now();
+  const boluses = (DATA.foodLogRaw || []).filter(r => r.type === 'bolus' && r.amount != null);
+
+  const stepMin = IOB_STEP_MIN;
+  const points = [];
+  for (let offset = -IOB_WINDOW_MIN; offset <= IOB_WINDOW_MIN; offset += stepMin) {
+    const ts = now + offset * 60000;
+    points.push({ offset, ts, val: totalIobAt(ts, boluses) });
+  }
+  const centerIdx = points.findIndex(p => p.offset === 0);
+  const nowVal = points[centerIdx] ? points[centerIdx].val : 0;
+  document.getElementById('iobNowVal').textContent = nowVal.toFixed(1) + 'E';
+
+  const labels = points.map(p => fmtTime(p.ts));
+  const values = points.map(p => p.val);
+  const bolusMarkerObj = bolusMarkerData(now, boluses, stepMin, points.length, IOB_WINDOW_MIN);
+
+  const nowLinePlugin = {
+    id: 'iobNowLine',
+    beforeDatasetsDraw(chart){
+      const { ctx, scales } = chart;
+      if (!scales.x) return;
+      const x = scales.x.getPixelForValue(centerIdx);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1.25;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(x, chart.chartArea.top);
+      ctx.lineTo(x, chart.chartArea.bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  if (iobChartInstance) iobChartInstance.destroy();
+  iobChartInstance = new Chart(canvas, {
+    type: 'line',
+    plugins: [nowLinePlugin, hourTopLabelsPlugin(centerIdx)],
+    data: {
+      labels,
+      datasets: [
+        { data: values, borderColor:'#7f77dd', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 },
+        { data: bolusMarkerObj.data, descs: bolusMarkerObj.descs, showLine:false, pointStyle:'triangle', pointRadius:6, pointBackgroundColor:'#7f77dd', pointBorderColor:'#fff', pointBorderWidth:1 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 14 } },
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip: {
+          enabled: true,
+          displayColors: false,
+          backgroundColor: 'rgba(20,20,22,0.95)',
+          titleColor: '#e4e4e0',
+          bodyColor: '#7f77dd',
+          callbacks: {
+            title: (items) => items[0] ? items[0].label : '',
+            label: (item) => item.dataset.descs ? 'Bolus: ' + item.dataset.descs[item.dataIndex] : item.formattedValue + 'E IOB'
+          }
+        }
+      },
+      scales: {
+        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:9}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
+        y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
+      }
+    }
+  });
+
+  renderActivityChart(boluses);
+}
+
+function renderActivityChart(boluses){
+  const canvas = document.getElementById('activityChart');
+  if (!canvas) return;
+  const now = Date.now();
+
+  const stepMin = IOB_STEP_MIN;
+  const points = [];
+  for (let offset = -IOB_WINDOW_MIN; offset <= IOB_WINDOW_MIN; offset += stepMin) {
+    const ts = now + offset * 60000;
+    points.push({ offset, ts, val: totalActivityAt(ts, boluses) });
+  }
+  const centerIdx = points.findIndex(p => p.offset === 0);
+  const labels = points.map(p => fmtTime(p.ts));
+  const values = points.map(p => p.val);
+  const bolusMarkerObj = bolusMarkerData(now, boluses, stepMin, points.length, IOB_WINDOW_MIN);
+
+  const nowLinePlugin = {
+    id: 'activityNowLine',
+    beforeDatasetsDraw(chart){
+      const { ctx, scales } = chart;
+      if (!scales.x) return;
+      const x = scales.x.getPixelForValue(centerIdx);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1.25;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(x, chart.chartArea.top);
+      ctx.lineTo(x, chart.chartArea.bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  if (activityChartInstance) activityChartInstance.destroy();
+  activityChartInstance = new Chart(canvas, {
+    type: 'line',
+    plugins: [nowLinePlugin, hourTopLabelsPlugin(centerIdx)],
+    data: {
+      labels,
+      datasets: [
+        { data: values, borderColor:'#a89af0', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 },
+        { data: bolusMarkerObj.data, descs: bolusMarkerObj.descs, showLine:false, pointStyle:'triangle', pointRadius:6, pointBackgroundColor:'#7f77dd', pointBorderColor:'#fff', pointBorderWidth:1 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 14 } },
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip: {
+          enabled: true,
+          displayColors: false,
+          backgroundColor: 'rgba(20,20,22,0.95)',
+          titleColor: '#e4e4e0',
+          bodyColor: '#a89af0',
+          callbacks: {
+            title: (items) => items[0] ? items[0].label : '',
+            label: (item) => item.dataset.descs ? 'Bolus: ' + item.dataset.descs[item.dataIndex] : item.formattedValue + ' E/min actief'
+          }
+        }
+      },
+      scales: {
+        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:9}, autoSkip:false, maxRotation:0 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
+        y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
+      }
+    }
+  });
+}
+
+function timeSinceLabel(ts){
+  const diffMin = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
+  if (diffMin < 60) return diffMin + 'm';
+  const h = Math.floor(diffMin / 60), m = diffMin % 60;
+  return h + 'u ' + m + 'm';
+}
+
+function renderHomeTiles(){
+  const logs = (DATA.foodLogRaw || []).slice().sort((a,b) => new Date(b.ts) - new Date(a.ts));
+  const lastBolus = logs.find(r => r.type === 'bolus');
+  const lastMeal = logs.find(r => r.type === 'khd');
+
+  document.getElementById('homeLastBolusVal').textContent = lastBolus ? timeSinceLabel(lastBolus.ts) : '-';
+  document.getElementById('homeLastBolusSub').textContent = lastBolus ? (lastBolus.amount + 'E' + (lastBolus.bolusType ? ' · ' + lastBolus.bolusType : '') + ', ' + fmtTime(lastBolus.ts)) : 'Geen data';
+
+  document.getElementById('homeLastMealVal').textContent = lastMeal ? timeSinceLabel(lastMeal.ts) : '-';
+  document.getElementById('homeLastMealSub').textContent = lastMeal ? ((lastMeal.desc || 'Maaltijd') + ' · ' + (lastMeal.amount != null ? lastMeal.amount + 'g' : '') + ', ' + fmtTime(lastMeal.ts)) : 'Geen data';
+
+  const ringPts = getKpiPeriodGlucose(currentKpiPeriod);
+  const low = ringPts.length ? Math.round(ringPts.filter(v => v < 3.9).length / ringPts.length * 100) : 0;
+  const high = ringPts.length ? Math.round(ringPts.filter(v => v > 10.0).length / ringPts.length * 100) : 0;
+  const inRange = ringPts.length ? 100 - low - high : 0;
+
+  document.getElementById('homeRing').style.background = 'conic-gradient(#e24b4a 0% ' + low + '%, #5dcaa5 ' + low + '% ' + (low+inRange) + '%, #efa000 ' + (low+inRange) + '% 100%)';
+  document.getElementById('homeRingPct').textContent = inRange + '%';
+  document.getElementById('homeRingLegend').innerHTML =
+    '<span><span style="display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; background:#e24b4a;"></span>' + low + '%</span>' +
+    '<span><span style="display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; background:#efa000;"></span>' + high + '%</span>';
+}
+
+function getKpiPeriodGlucose(period){
+  const glucose = DATA.glucose || [];
+  if (!glucose.length) return [];
+  if (period === 'today') {
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    return glucose.filter(g => g.ts.startsWith(todayStr)).map(g => g.glucose);
+  }
+  if (period === '24') {
+    const cutoff = new Date(Date.now() - 24*3600000);
+    return glucose.filter(g => new Date(g.ts) >= cutoff).map(g => g.glucose);
+  }
+  const days = parseInt(period);
+  const cutoff = new Date(Date.now() - days*24*3600000);
+  return glucose.filter(g => new Date(g.ts) >= cutoff).map(g => g.glucose);
+}
+
+let homeTrendHours = 168;
+let homeTrendChartInstance = null;
+
+function selectHomeTrend(hours, btn){
+  homeTrendHours = hours;
+  document.querySelectorAll('.homeTrendBtn').forEach(b => b.classList.remove('dayBtnActive'));
+  btn.classList.add('dayBtnActive');
+  renderHomeTrendChart();
+}
+
+function renderHomeTrendChart(){
+  const canvas = document.getElementById('homeTrendChart');
+  if (!canvas) return;
+  const cutoff = Date.now() - homeTrendHours * 3600000;
+  const pts = (DATA.glucose || []).filter(g => new Date(g.ts).getTime() >= cutoff);
+  const labels = pts.map(g => homeTrendHours <= 24 ? fmtTime(g.ts) : fmtDayTime(g.ts));
+  const values = pts.map(g => g.glucose);
+
+  if (homeTrendChartInstance) homeTrendChartInstance.destroy();
+  homeTrendChartInstance = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: '#5dcaa5',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        spanGaps: true,
+        segment: {
+          borderColor: ctx => zoneColor(ctx.p1.parsed.y)
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend:{display:false}, tooltip:{enabled:false}, datalabels:{display:false} },
+      scales: {
+        x: { ticks:{ color:'#8a8a86', font:{size:9}, maxTicksLimit:6, autoSkip:true }, grid:{display:false} },
+        y: { ticks:{ color:'#8a8a86', font:{size:9} }, grid:{color:'rgba(255,255,255,0.06)'} }
+      }
+    }
+  });
+}
+
+let icrChartInstance = null;
+
+function timeOfDayBucket(ts){
+  const h = new Date(ts).getHours();
+  if (h >= 5 && h < 12) return 'Ochtend';
+  if (h >= 12 && h < 17) return 'Middag';
+  if (h >= 17 && h < 22) return 'Avond';
+  return 'Nacht';
+}
+
+function renderIcrChart(){
+  const canvas = document.getElementById('icrChart');
+  if (!canvas) return;
+
+  const all = DATA.foodLogRaw || [];
+  const byId = {};
+  all.forEach(r => { byId[r.id] = r; });
+
+  const buckets = { Ochtend: [], Middag: [], Avond: [], Nacht: [] };
+
+  all.filter(r => r.type === 'khd' && r.amount > 0 && r.links && r.links.length).forEach(meal => {
+    let bolusUnits = 0;
+    meal.links.forEach(l => {
+      const full = byId[l.id];
+      if (full && full.type === 'bolus' && full.amount > 0) {
+        bolusUnits += full.amount;
+      }
+    });
+    if (bolusUnits > 0) {
+      const ratio = meal.amount / bolusUnits;
+      buckets[timeOfDayBucket(meal.ts)].push(ratio);
+    }
+  });
+
+  const order = ['Ochtend', 'Middag', 'Avond', 'Nacht'];
+  const MIN_N = 3;
+  const values = [];
+  const counts = [];
+  const colors = [];
+  order.forEach(k => {
+    const arr = buckets[k];
+    counts.push(arr.length);
+    if (arr.length >= MIN_N) {
+      values.push(arr.reduce((s, v) => s + v, 0) / arr.length);
+      colors.push('#7f77dd');
+    } else {
+      values.push(0);
+      colors.push('rgba(255,255,255,0.08)');
+    }
+  });
+
+  if (icrChartInstance) icrChartInstance.destroy();
+  icrChartInstance = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: order,
+      datasets: [{ data: values, backgroundColor: colors, borderRadius: 6, maxBarThickness: 60 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        datalabels: { display: false },
+        tooltip: {
+          enabled: true,
+          displayColors: false,
+          backgroundColor: 'rgba(20,20,22,0.95)',
+          titleColor: '#e4e4e0',
+          bodyColor: '#7f77dd',
+          callbacks: {
+            label: (item) => {
+              const n = counts[item.dataIndex];
+              if (n < MIN_N) return 'Onvoldoende data (n=' + n + ', minimaal ' + MIN_N + ' nodig)';
+              return '1:' + values[item.dataIndex].toFixed(1) + ' (n=' + n + ')';
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#8a8a86', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#8a8a86', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
 function showTab(tab){
-  document.getElementById('viewGrafiek').style.display = tab === 'grafiek' ? 'block' : 'none';
+  const showShared = (tab === 'home' || tab === 'log');
+  document.getElementById('viewGrafiek').style.display = showShared ? 'block' : 'none';
   document.getElementById('viewHoogtepunten').style.display = tab === 'hoogtepunten' ? 'block' : 'none';
   document.getElementById('viewRuweData').style.display = tab === 'ruwedata' ? 'block' : 'none';
-  document.getElementById('tabGrafiek').style.background = tab === 'grafiek' ? '#2c2c2e' : 'transparent';
-  document.getElementById('tabGrafiek').style.color = tab === 'grafiek' ? '#e4e4e0' : '#b7b7b2';
-  document.getElementById('tabHoogtepunten').style.background = tab === 'hoogtepunten' ? '#2c2c2e' : 'transparent';
-  document.getElementById('tabHoogtepunten').style.color = tab === 'hoogtepunten' ? '#e4e4e0' : '#b7b7b2';
-  document.getElementById('tabRuweData').style.background = tab === 'ruwedata' ? '#2c2c2e' : 'transparent';
-  document.getElementById('tabRuweData').style.color = tab === 'ruwedata' ? '#e4e4e0' : '#b7b7b2';
+
+  document.getElementById('homeTilesSection').style.display = tab === 'home' ? 'block' : 'none';
+  document.getElementById('logPanelsSection').style.display = tab === 'log' ? 'block' : 'none';
+
+  const tabs = { tabHome: 'home', tabGrafiek: 'log', tabHoogtepunten: 'hoogtepunten', tabRuweData: 'ruwedata' };
+  Object.entries(tabs).forEach(([id, key]) => {
+    document.getElementById(id).style.background = tab === key ? 'rgba(255,255,255,0.06)' : 'transparent';
+    document.getElementById(id).style.color = tab === key ? '#e4e4e0' : '#b7b7b2';
+  });
+
   if (tab === 'hoogtepunten') renderHighlights();
   if (tab === 'ruwedata') renderRuweData();
+  if (tab === 'home') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrChart(); }
 }
 
 const ICON_EDIT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
 const ICON_TRASH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
 const ICON_SAVE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 const ICON_CANCEL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+const ICON_CHEVRON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
 
 let ruweRows = [];
 
@@ -869,84 +1520,326 @@ function renderRuweData(){
   rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
 
   if (!rows.length){
-    body.innerHTML = '<tr><td colspan="9" style="padding:12px 8px; color:#b7b7b2;">Geen rijen voor dit filter.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="padding:12px 8px; color:#b7b7b2;">Geen rijen voor dit filter.</td></tr>';
     return;
   }
 
   rows.forEach(r => {
     const tr = document.createElement('tr');
     tr.id = 'rdRow-' + r.id;
-    tr.style.borderBottom = '1px solid #2c2c2e';
-    const typeLabel = r.type === 'bolus'
-      ? r.type + (r.bolusType ? ' (' + r.bolusType + ')' : '') + (r.bgAtEntry != null ? ' · BG ' + r.bgAtEntry : '')
-      : r.type;
-    const linksLabel = r.links.length
-      ? r.links.map(l => (l.desc||l.type)).join(', ')
-      : '–';
+    tr.className = 'rdRowClickable';
+    tr.style.borderBottom = '0.5px solid rgba(255,255,255,0.07)';
+    tr.onclick = () => openRdModal(r.id);
+    const accent = typeAccent(r.type);
+    const typeLabel =
+      '<div style="display:flex; align-items:center; gap:7px;">' +
+        '<div style="width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:' + accent.bg + '; flex-shrink:0;">' + accent.icon + '</div>' +
+        '<span>' + r.type + (r.bolusType ? ' (' + r.bolusType + ')' : '') + '</span>' +
+      '</div>';
+    const contextLabel = (r.type === 'bolus' && r.bgAtEntry != null)
+      ? (bgPillHtml(r.bgAtEntry) + (r.context ? ' <span style="color:#8a8a86;">' + r.context + '</span>' : ''))
+      : (r.context ? '<span style="color:#8a8a86;">' + r.context + '</span>' : '');
+    const tagChips = r.tags ? r.tags.split(/[,;]/).map(t => t.trim()).filter(Boolean).map(t => '<span class="rdChip tag">' + t + '</span>').join('') : '';
+    const linkChips = r.links.length ? r.links.map(l => '<span class="rdChip link">&#8596; ' + (l.desc||l.type) + '</span>').join('') : '<span style="color:#75746f;">–</span>';
     tr.innerHTML =
-      '<td data-label="Tijd" class="rd-time" style="padding:6px 8px; white-space:nowrap;">' + fmtDayTime(r.ts) + '</td>' +
-      '<td data-label="Beschrijving" class="rd-desc" style="padding:6px 8px; word-wrap:break-word;">' + (r.desc||'') + '</td>' +
-      '<td data-label="Type" class="rd-type" style="padding:6px 8px;">' + typeLabel + '</td>' +
-      '<td data-label="Wie" class="rd-who-col" style="padding:6px 8px;">' + (r.source||'Marc') + '</td>' +
-      '<td data-label="Aantal" class="rd-amount" style="padding:6px 8px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
-      '<td data-label="Tags" class="rd-tags" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.tags||'') + '</td>' +
-      '<td data-label="Context" class="rd-context" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + (r.context||'') + '</td>' +
-      '<td data-label="Gekoppeld" class="rd-links" style="padding:6px 8px; color:#b7b7b2; word-wrap:break-word;">' + linksLabel + '</td>' +
-      '<td data-label="Actie" class="rd-actions" style="padding:6px 8px; white-space:nowrap;">' +
-        '<button onclick="editLogRow(' + r.id + ')" title="Bewerken" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_EDIT + '</button>' +
-        '<button onclick="deleteLogRow(' + r.id + ', this)" title="Verwijderen" style="background:transparent; border:none; cursor:pointer; color:#e24b4a; padding:2px 4px;">' + ICON_TRASH + '</button>' +
-      '</td>';
+      '<td data-label="Tijd" class="rd-time" style="padding:9px 12px; white-space:nowrap; color:#b7b7b2; font-size:12px;">' + fmtDayTime(r.ts) + '</td>' +
+      '<td data-label="Beschrijving" class="rd-desc" style="padding:9px 12px; word-wrap:break-word; font-weight:500;">' + (r.desc||'') + '</td>' +
+      '<td data-label="Aantal" class="rd-amount" style="padding:9px 12px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
+      '<td data-label="Type" class="rd-type" style="padding:9px 12px;">' + typeLabel + '</td>' +
+      '<td data-label="Context" class="rd-context" style="padding:9px 12px; word-wrap:break-word; font-size:12px;">' + contextLabel + '</td>' +
+      '<td data-label="Tags" class="rd-tags" style="padding:9px 12px; word-wrap:break-word;"><div class="rdChips" style="margin-top:0;">' + tagChips + '</div></td>' +
+      '<td data-label="Gekoppeld" class="rd-links" style="padding:9px 12px; word-wrap:break-word;"><div class="rdChips" style="margin-top:0;">' + linkChips + '</div></td>' +
+      '<td style="padding:9px 12px; color:#75746f;">' + ICON_CHEVRON + '</td>';
     body.appendChild(tr);
+  });
+  renderRuweDataCards(rows);
+}
+
+function typeAccent(type){
+  if (type === 'bolus') return { color: '#7f77dd', bg: 'rgba(127,119,221,0.16)', icon: '<svg width="11" height="11" viewBox="0 0 20 20"><polygon points="10,2 18,17 2,17" fill="#7f77dd"/></svg>' };
+  if (type === 'beweging') return { color: '#7edf54', bg: 'rgba(126,223,84,0.16)', icon: '<svg width="11" height="11" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="#7edf54"/></svg>' };
+  return { color: '#d85a30', bg: 'rgba(216,90,48,0.16)', icon: '<svg width="11" height="11" viewBox="0 0 20 20"><rect x="4.5" y="4.5" width="11" height="11" fill="#d85a30" transform="rotate(45 10 10)"/></svg>' };
+}
+
+function bgPillHtml(v){
+  if (v == null) return '';
+  let bg, color;
+  if (v < 3.9) { bg = 'rgba(255,59,48,0.3)'; color = '#ff6b64'; }
+  else if (v > 10.0) { bg = 'rgba(239,160,0,0.18)'; color = '#f5c869'; }
+  else { bg = 'rgba(29,230,171,0.28)'; color = '#1fe6ab'; }
+  return '<span class="rdBgPill" style="background:' + bg + '; color:' + color + ';">' + v + '</span>';
+}
+
+function rdPrimaryLine(r){
+  if (r.type === 'bolus') {
+    return r.amount + 'E' + (r.bolusType ? ' · ' + r.bolusType.charAt(0).toUpperCase() + r.bolusType.slice(1) : '');
+  }
+  if (r.type === 'khd') {
+    return (r.desc||'') + (r.amount != null && r.amount !== '' ? ' · ' + r.amount + 'g' : '');
+  }
+  return r.desc || '';
+}
+
+function renderRuweDataCards(rows){
+  const container = document.getElementById('rdCards');
+  if (!rows.length){
+    container.innerHTML = '<div style="padding:12px 8px; color:#b7b7b2; font-size:13px;">Geen rijen voor dit filter.</div>';
+    return;
+  }
+
+  let html = '';
+  let lastDayLabel = null;
+  rows.forEach((r, idx) => {
+    const dLabel = dayLabel(r.ts);
+    if (dLabel !== lastDayLabel) {
+      if (lastDayLabel !== null) html += '</div>';
+      html += '<div class="rdDayHeader">' + dLabel + '</div><div class="rdDayCard">';
+      lastDayLabel = dLabel;
+    }
+    const accent = typeAccent(r.type);
+    const chips = [];
+    if (r.tags) r.tags.split(/[,;]/).map(t => t.trim()).filter(Boolean).forEach(t => chips.push('<span class="rdChip tag">' + t + '</span>'));
+    if (r.links.length) r.links.forEach(l => chips.push('<span class="rdChip link">&#8596; ' + (l.desc||l.type) + '</span>'));
+
+    html += '<div class="rdEntry rdRowClickable" id="rdCard-' + r.id + '" data-id="' + r.id + '" onclick="openRdModal(' + r.id + ')">' +
+      '<div class="rdIconBadge" style="background:' + accent.bg + ';">' + accent.icon + '</div>' +
+      '<div class="rdBody">' +
+        '<div class="rdTopRow">' +
+          '<span class="rdPrimary">' + rdPrimaryLine(r) + '</span>' +
+          '<div class="rdMeta">' + (r.type === 'bolus' ? bgPillHtml(r.bgAtEntry) : '') + '<span class="rdTime">' + fmtTime(r.ts) + '</span></div>' +
+        '</div>' +
+        (r.type === 'khd' && r.context ? '<div style="font-size:12px; color:#8a8a86; margin-top:1px;">' + r.context + '</div>' : '') +
+        (r.type === 'beweging' && r.context ? '<div style="font-size:12px; color:#8a8a86; margin-top:1px;">' + r.context + '</div>' : '') +
+        (r.type === 'bolus' && r.context ? '<div style="font-size:12px; color:#8a8a86; margin-top:1px;">' + r.context + '</div>' : '') +
+        (chips.length ? '<div class="rdChips">' + chips.join('') + '</div>' : '') +
+      '</div>' +
+      '<div style="color:#75746f; flex-shrink:0;">' + ICON_CHEVRON + '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+
+function openRdModal(id){
+  const row = ruweRows.find(r => r.id === id);
+  if (!row) return;
+  const accent = typeAccent(row.type);
+  const tsLocal = (row.ts||'').slice(0,16);
+  const linkedIds = new Set(row.links.map(l => l.id));
+  const candidates = ruweRows.filter(r => r.id !== id).sort((a,b) => new Date(b.ts) - new Date(a.ts)).slice(0, 20);
+  const linksHtml = candidates.map(c =>
+    '<label style="display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 0;">' +
+      '<input type="checkbox" value="' + c.id + '"' + (linkedIds.has(c.id) ? ' checked' : '') + '> ' +
+      fmtTime(c.ts) + ' · ' + (c.desc||'') +
+    '</label>'
+  ).join('');
+  const fieldStyle = 'background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:8px; padding:7px 9px; font-size:13px;';
+
+  document.getElementById('rdModalContent').innerHTML =
+    '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">' +
+      '<div style="display:flex; align-items:center; gap:10px;">' +
+        '<div style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:' + accent.bg + ';">' + accent.icon.replace('width="11" height="11"', 'width="14" height="14"') + '</div>' +
+        '<div><div style="font-size:17px; font-weight:600;">' + rdPrimaryLine(row) + '</div><div style="font-size:12px; color:#8a8a86;">' + fmtDayTime(row.ts) + '</div></div>' +
+      '</div>' +
+      '<button onclick="closeRdModal()" style="background:transparent; border:none; color:#8a8a86; font-size:22px; cursor:pointer; line-height:1;">&times;</button>' +
+    '</div>' +
+
+    '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Glucoseverloop (&plusmn;3u)</div>' +
+    '<div style="background:rgba(0,0,0,0.2); border-radius:12px; padding:10px 8px 4px; margin-bottom:16px;">' +
+      '<canvas id="rdModalChart" height="130"></canvas>' +
+    '</div>' +
+
+    '<div style="display:flex; flex-direction:column; gap:8px;">' +
+      '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
+        '<input id="rdmTs" type="datetime-local" value="' + tsLocal + '" style="flex:1; min-width:150px; ' + fieldStyle + '">' +
+        '<select id="rdmType" style="' + fieldStyle + '">' +
+          ['khd','bolus','beweging'].map(t => '<option value="' + t + '"' + (t === row.type ? ' selected' : '') + '>' + t + '</option>').join('') +
+        '</select>' +
+        (row.type === 'bolus' ? '<select id="rdmBolusType" style="' + fieldStyle + '">' +
+          ['regulier','pre-bolus','correctie','na-bolus'].map(t => '<option value="' + t + '"' + (t === row.bolusType ? ' selected' : '') + '>' + t + '</option>').join('') +
+        '</select>' : '') +
+      '</div>' +
+      '<input id="rdmDesc" value="' + (row.desc||'').replace(/"/g,'&quot;') + '" placeholder="Beschrijving" style="' + fieldStyle + '">' +
+      '<div style="display:flex; gap:6px;">' +
+        '<input id="rdmAmount" type="number" value="' + (row.amount != null ? row.amount : '') + '" placeholder="Aantal" style="flex:1; ' + fieldStyle + '">' +
+        '<input id="rdmTags" value="' + (row.tags||'').replace(/"/g,'&quot;') + '" placeholder="Tags" style="flex:2; ' + fieldStyle + '">' +
+      '</div>' +
+      '<textarea id="rdmContext" placeholder="Context" style="min-height:54px; ' + fieldStyle + '">' + (row.context||'') + '</textarea>' +
+      '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Koppel aan</div>' +
+      '<div id="rdmLinks" style="max-height:130px; overflow-y:auto; background:rgba(0,0,0,0.2); border:0.5px solid rgba(255,255,255,0.12); border-radius:8px; padding:6px 8px;">' + linksHtml + '</div>' +
+    '</div>' +
+
+    '<div style="display:flex; gap:8px; justify-content:space-between; margin-top:18px;">' +
+      '<button onclick="deleteFromModal(' + id + ')" style="background:rgba(226,75,74,0.15); color:#ff6b64; border:none; border-radius:10px; padding:9px 14px; cursor:pointer; font-size:13px; font-weight:600;">Verwijderen</button>' +
+      '<div style="display:flex; gap:8px;">' +
+        '<button onclick="closeRdModal()" style="background:rgba(255,255,255,0.08); color:#e4e4e0; border:none; border-radius:10px; padding:9px 16px; cursor:pointer; font-size:13px;">Annuleren</button>' +
+        '<button onclick="saveRdModal(' + id + ')" style="background:' + accent.color + '; color:#151515; border:none; border-radius:10px; padding:9px 16px; cursor:pointer; font-size:13px; font-weight:600;">Opslaan</button>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('rdModalOverlay').style.display = 'flex';
+  renderModalChart(row, accent);
+}
+
+function closeRdModal(){
+  document.getElementById('rdModalOverlay').style.display = 'none';
+  if (window._rdModalChart) { window._rdModalChart.destroy(); window._rdModalChart = null; }
+}
+
+function renderModalChart(row, accent){
+  const center = new Date(row.ts).getTime();
+  const windowMs = 3 * 3600000;
+  const pts = (DATA.glucose||[]).filter(g => {
+    const t = new Date(g.ts).getTime();
+    return t >= center - windowMs && t <= center + windowMs;
+  });
+  const labels = pts.map(g => fmtTime(g.ts));
+  const values = pts.map(g => g.glucose);
+  const GOLD = '#f0c14b';
+
+  function nearestIdx(ts){
+    if (!pts.length) return -1;
+    let best = 0, bestDiff = Infinity;
+    pts.forEach((g,i) => { const diff = Math.abs(new Date(g.ts).getTime() - new Date(ts).getTime()); if (diff < bestDiff){ bestDiff = diff; best = i; } });
+    return best;
+  }
+  function clampY(v){ return Math.max(2.5, Math.min(19.5, v)); }
+
+  const pointStyleMap = { bolus: 'triangle', khd: 'rectRot', beweging: 'circle' };
+  const colorMap = { bolus: '#7f77dd', khd: '#d85a30', beweging: '#7edf54' };
+  const linkedIds = new Set((row.links||[]).map(l => l.id));
+  const hasLinks = linkedIds.size > 0;
+
+  // Verzamelpunten voor de gouden verbindingslijn + gloed (self + alle gekoppelde items die in beeld zijn)
+  const linkedPositions = [];
+
+  const selfIdx = nearestIdx(row.ts);
+  const selfLinked = hasLinks;
+  if (selfLinked) linkedPositions.push(selfIdx);
+  const selfData = pts.map((g, i) => i === selfIdx ? values[i] : null);
+  const selfDescs = pts.map((g, i) => i === selfIdx ? (rdPrimaryLine(row) + ' · ' + fmtTime(row.ts)) : null);
+
+  const others = { bolus: [], khd: [], beweging: [] };
+  (ruweRows||[]).forEach(r => {
+    if (r.id === row.id) return;
+    const t = new Date(r.ts).getTime();
+    if (t < center - windowMs || t > center + windowMs) return;
+    if (others[r.type]) others[r.type].push(r);
+  });
+
+  function otherDataset(type, yOffset){
+    const data = new Array(pts.length).fill(null);
+    const descs = new Array(pts.length).fill(null);
+    const borderColor = new Array(pts.length).fill(colorMap[type]);
+    const borderWidth = new Array(pts.length).fill(0);
+    const radius = new Array(pts.length).fill(6);
+    others[type].forEach(r => {
+      const idx = nearestIdx(r.ts);
+      if (idx < 0) return;
+      data[idx] = clampY(values[idx] + yOffset);
+      const isLinked = linkedIds.has(r.id);
+      descs[idx] = rdPrimaryLine(r) + ' · ' + fmtTime(r.ts) + (isLinked ? ' (gekoppeld)' : '');
+      if (isLinked) {
+        borderColor[idx] = GOLD; borderWidth[idx] = 2; radius[idx] = 8;
+        linkedPositions.push(idx);
+      }
+    });
+    return { data, descs, borderColor, borderWidth, radius };
+  }
+
+  const bolusOther = otherDataset('bolus', -0.8);
+  const khdOther = otherDataset('khd', 0.8);
+  const bewegingOther = otherDataset('beweging', 0);
+
+  // Gestippelde lijn tussen alle gekoppelde punten (op hun eigen y-positie)
+  const allDataByIdx = {};
+  linkedPositions.forEach(idx => {
+    if (idx === selfIdx && selfLinked) { allDataByIdx[idx] = values[idx]; return; }
+    [bolusOther, khdOther, bewegingOther].forEach(ds => { if (ds.data[idx] != null) allDataByIdx[idx] = ds.data[idx]; });
+  });
+  const sortedLinkedIdx = [...new Set(linkedPositions)].sort((a,b) => a-b);
+  const connectorData = pts.map((g, i) => allDataByIdx[i] != null ? allDataByIdx[i] : null);
+
+  const glowPoints = sortedLinkedIdx.map(idx => ({ idx, y: allDataByIdx[idx] }));
+  const glowPlugin = {
+    id: 'goldGlow',
+    beforeDatasetsDraw(chart){
+      const { ctx, scales } = chart;
+      if (!scales.x || !scales.y) return;
+      glowPoints.forEach(p => {
+        if (p.y == null) return;
+        const x = scales.x.getPixelForValue(p.idx);
+        const y = scales.y.getPixelForValue(p.y);
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, 16);
+        grad.addColorStop(0, 'rgba(255,255,255,0.6)');
+        grad.addColorStop(0.45, 'rgba(255,248,225,0.28)');
+        grad.addColorStop(1, 'rgba(255,248,225,0)');
+        ctx.save();
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, 16, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+  };
+
+  const ctx = document.getElementById('rdModalChart');
+  if (window._rdModalChart) window._rdModalChart.destroy();
+  window._rdModalChart = new Chart(ctx, {
+    type: 'line',
+    plugins: [glowPlugin],
+    data: {
+      labels,
+      datasets: [
+        { data: values, borderColor:'#5dcaa5', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.3, spanGaps:true },
+        { data: connectorData, showLine: sortedLinkedIdx.length > 1, borderColor: GOLD, borderWidth:1.5, borderDash:[5,4], spanGaps:true, pointRadius:0, order:0 },
+        { data: bolusOther.data, descs: bolusOther.descs, showLine:false, pointStyle:'triangle', pointRadius: bolusOther.radius, pointBackgroundColor: colorMap.bolus, pointBorderColor: bolusOther.borderColor, pointBorderWidth: bolusOther.borderWidth },
+        { data: khdOther.data, descs: khdOther.descs, showLine:false, pointStyle:'rectRot', pointRadius: khdOther.radius, pointBackgroundColor: colorMap.khd, pointBorderColor: khdOther.borderColor, pointBorderWidth: khdOther.borderWidth },
+        { data: bewegingOther.data, descs: bewegingOther.descs, showLine:false, pointStyle:'circle', pointRadius: bewegingOther.radius, pointBackgroundColor: colorMap.beweging, pointBorderColor: bewegingOther.borderColor, pointBorderWidth: bewegingOther.borderWidth },
+        { data: selfData, descs: selfDescs, showLine:false, pointStyle: pointStyleMap[row.type] || 'circle', pointRadius: selfLinked ? 10 : 8, pointBackgroundColor: accent.color, pointBorderColor: selfLinked ? GOLD : '#fff', pointBorderWidth:2 }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode:'nearest', intersect:true },
+      plugins: {
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip: {
+          enabled: true,
+          displayColors: false,
+          backgroundColor: 'rgba(20,20,22,0.95)',
+          titleColor: '#e4e4e0',
+          bodyColor: '#e4e4e0',
+          callbacks: {
+            title: () => '',
+            label: (context) => {
+              const ds = context.dataset;
+              if (ds.descs && ds.descs[context.dataIndex] != null) return ds.descs[context.dataIndex];
+              if (context.datasetIndex === 0) return context.formattedValue + ' mmol/L';
+              return null;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks:{ color:'#8a8a86', font:{size:10}, maxTicksLimit:6, autoSkip:true }, grid:{color:'rgba(255,255,255,0.06)'} },
+        y: { ticks:{ color:'#8a8a86', font:{size:10} }, grid:{color:'rgba(255,255,255,0.06)'} }
+      }
+    }
   });
 }
 
-function editLogRow(id){
-  const row = ruweRows.find(r => r.id === id);
-  if (!row) return;
-  const tr = document.getElementById('rdRow-' + id);
-  if (!tr) return;
-
-  const tsLocal = (row.ts||'').slice(0,16);
-  tr.querySelector('.rd-time').innerHTML = '<input id="rdEditTs-' + id + '" type="datetime-local" value="' + tsLocal + '" style="width:100%; min-width:150px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
-  tr.querySelector('.rd-type').innerHTML = '<select id="rdEditType-' + id + '" style="background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' +
-    ['khd','bolus','beweging'].map(t => '<option value="' + t + '"' + (t === row.type ? ' selected' : '') + '>' + t + '</option>').join('') +
-    '</select>' +
-    (row.type === 'bolus' ? '<br><select id="rdEditBolusType-' + id + '" style="margin-top:4px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' +
-      ['regulier','pre-bolus','correctie','na-bolus'].map(t => '<option value="' + t + '"' + (t === row.bolusType ? ' selected' : '') + '>' + t + '</option>').join('') +
-      '</select>' : '');
-  tr.querySelector('.rd-desc').innerHTML = '<input id="rdEditDesc-' + id + '" value="' + (row.desc||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
-  tr.querySelector('.rd-amount').innerHTML = '<input id="rdEditAmount-' + id + '" type="number" value="' + (row.amount != null ? row.amount : '') + '" style="width:70px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
-  tr.querySelector('.rd-tags').innerHTML = '<input id="rdEditTags-' + id + '" value="' + (row.tags||'').replace(/"/g,'&quot;') + '" style="width:100%; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">';
-  tr.querySelector('.rd-context').innerHTML = '<textarea id="rdEditContext-' + id + '" style="width:100%; min-height:60px; background:#1c1c1e; color:#e4e4e0; border:1px solid #45454a; border-radius:4px; padding:4px 6px;">' + (row.context||'') + '</textarea>';
-
-  const linkedIds = new Set(row.links.map(l => l.id));
-  const candidates = ruweRows
-    .filter(r => r.id !== id)
-    .sort((a,b) => new Date(b.ts) - new Date(a.ts))
-    .slice(0, 20);
-  const pickerHtml = '<div id="rdEditLinks-' + id + '" style="max-height:120px; overflow-y:auto; border:1px solid #45454a; border-radius:4px; padding:4px 6px; background:#1c1c1e;">' +
-    candidates.map(c =>
-      '<label style="display:block; font-size:12px; padding:2px 0; cursor:pointer;">' +
-        '<input type="checkbox" value="' + c.id + '"' + (linkedIds.has(c.id) ? ' checked' : '') + '> ' +
-        fmtTime(c.ts) + ' · ' + c.type + ' · ' + (c.desc||'') +
-      '</label>'
-    ).join('') +
-    '</div>';
-  tr.querySelector('.rd-links').innerHTML = pickerHtml;
-
-  tr.querySelector('.rd-actions').innerHTML =
-    '<button onclick="saveLogRow(' + id + ')" title="Opslaan" style="background:transparent; border:none; cursor:pointer; color:#7edf54; padding:2px 4px;">' + ICON_SAVE + '</button>' +
-    '<button onclick="renderRuweData()" title="Annuleren" style="background:transparent; border:none; cursor:pointer; color:#b7b7b2; padding:2px 4px;">' + ICON_CANCEL + '</button>';
-}
-
-async function saveLogRow(id){
-  const desc = document.getElementById('rdEditDesc-' + id).value;
-  const amount = document.getElementById('rdEditAmount-' + id).value;
-  const tags = document.getElementById('rdEditTags-' + id).value;
-  const context = document.getElementById('rdEditContext-' + id).value;
-  const ts = document.getElementById('rdEditTs-' + id).value;
-  const type = document.getElementById('rdEditType-' + id).value;
-  const bolusTypeEl = document.getElementById('rdEditBolusType-' + id);
+async function saveRdModal(id){
+  const desc = document.getElementById('rdmDesc').value;
+  const amount = document.getElementById('rdmAmount').value;
+  const tags = document.getElementById('rdmTags').value;
+  const context = document.getElementById('rdmContext').value;
+  const ts = document.getElementById('rdmTs').value;
+  const type = document.getElementById('rdmType').value;
+  const bolusTypeEl = document.getElementById('rdmBolusType');
   const bolusType = bolusTypeEl ? bolusTypeEl.value : '';
 
   try {
@@ -956,21 +1849,15 @@ async function saveLogRow(id){
       '&ts=' + encodeURIComponent(ts) + '&type=' + encodeURIComponent(type) +
       '&bolusType=' + encodeURIComponent(bolusType));
     const json = await res.json();
-    if (json.status !== 'ok') {
-      alert('Mislukt: ' + (json.message || 'onbekende fout'));
-      return;
-    }
+    if (json.status !== 'ok') { alert('Mislukt: ' + (json.message || 'onbekende fout')); return; }
 
-    const linksBox = document.getElementById('rdEditLinks-' + id);
-    const linkTo = linksBox
-      ? [...linksBox.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value).join(',')
-      : '';
+    const linksBox = document.getElementById('rdmLinks');
+    const linkTo = linksBox ? [...linksBox.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value).join(',') : '';
     const linkRes = await fetch(API_LINK + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id) + '&linkTo=' + encodeURIComponent(linkTo));
     const linkJson = await linkRes.json();
-    if (linkJson.status !== 'ok') {
-      alert('Bijgewerkt, maar koppelingen opslaan mislukte: ' + (linkJson.message || 'onbekende fout'));
-    }
+    if (linkJson.status !== 'ok') { alert('Bijgewerkt, maar koppelingen opslaan mislukte: ' + (linkJson.message || 'onbekende fout')); }
 
+    closeRdModal();
     await loadData();
     renderRuweData();
   } catch (err) {
@@ -978,22 +1865,20 @@ async function saveLogRow(id){
   }
 }
 
-async function deleteLogRow(id, btn){
+async function deleteFromModal(id){
   if (!confirm('Deze entry definitief verwijderen?')) return;
-  btn.disabled = true;
   try {
     const res = await fetch(API_DELETE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id));
     const json = await res.json();
     if (json.status === 'ok') {
+      closeRdModal();
       await loadData();
       renderRuweData();
     } else {
       alert('Mislukt: ' + (json.message || 'onbekende fout'));
-      btn.disabled = false;
     }
   } catch (err) {
     alert('Mislukt: ' + err.message);
-    btn.disabled = false;
   }
 }
 
@@ -1078,6 +1963,9 @@ function renderHighlights(){
 document.getElementById('hlPeriod').addEventListener('change', renderHighlights);
 
 // Eerste keer data ophalen, en daarna elke minuut automatisch verversen
+attachTagAutocomplete('qlDesc');
+attachTagAutocomplete('qbReason');
+attachTagAutocomplete('qeActivity');
 loadData();
 setInterval(loadData, 60000);
 </script>
