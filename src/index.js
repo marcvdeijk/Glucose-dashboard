@@ -41,20 +41,25 @@ function nearestGlucose(glucose, tsText) {
   return best;
 }
 
-async function getData(env) {
+async function getData(env, days) {
+  const cutoff = days ? fmtTimestamp(new Date(Date.now() - Number(days) * 24 * 3600000)) : null;
+
   const glucoseRows = await env.DB.prepare(
-    "SELECT timestamp, glucose FROM nightscout_data WHERE type = 'glucose' ORDER BY timestamp"
-  ).all();
+    "SELECT timestamp, glucose FROM nightscout_data WHERE type = 'glucose'" +
+    (cutoff ? " AND timestamp >= ?" : "") + " ORDER BY timestamp"
+  ).bind(...(cutoff ? [cutoff] : [])).all();
   const glucose = glucoseRows.results.map(r => ({ ts: r.timestamp.replace(' ', 'T'), glucose: r.glucose }));
 
   const treatmentRows = await env.DB.prepare(
-    "SELECT timestamp, bolus FROM nightscout_data WHERE type = 'treatment' AND bolus > 0 ORDER BY timestamp"
-  ).all();
+    "SELECT timestamp, bolus FROM nightscout_data WHERE type = 'treatment' AND bolus > 0" +
+    (cutoff ? " AND timestamp >= ?" : "") + " ORDER BY timestamp"
+  ).bind(...(cutoff ? [cutoff] : [])).all();
   const treatments = treatmentRows.results.map(r => ({ ts: r.timestamp.replace(' ', 'T'), bolus: r.bolus }));
 
   const logRows = await env.DB.prepare(
-    "SELECT id, timestamp, description, tags, amount, context, type, source, bolus_type FROM food_log ORDER BY timestamp"
-  ).all();
+    "SELECT id, timestamp, description, tags, amount, context, type, source, bolus_type FROM food_log" +
+    (cutoff ? " WHERE timestamp >= ?" : "") + " ORDER BY timestamp"
+  ).bind(...(cutoff ? [cutoff] : [])).all();
 
   const linkRows = await env.DB.prepare("SELECT entry_a_id, entry_b_id FROM entry_links").all();
   const linkMap = {};
@@ -108,8 +113,9 @@ async function getData(env) {
   return { glucose, treatments, meals, exercises, foodLogRaw, sensorStart };
 }
 
-async function handleData(env) {
-  return jsonOut(await getData(env));
+async function handleData(env, params) {
+  const days = params ? params.get('days') : null;
+  return jsonOut(await getData(env, days));
 }
 
 // ---- /api/log: schrijven ----
@@ -413,7 +419,7 @@ export default {
       if (!env.READ_KEY || url.searchParams.get('key') !== env.READ_KEY) {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
-      return handleData(env);
+      return handleData(env, url.searchParams);
     }
 
     if (url.pathname === '/api/log') {

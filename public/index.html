@@ -464,7 +464,7 @@ const API_LINK = '/api/link';
 const urlParams = new URLSearchParams(window.location.search);
 const READ_KEY = urlParams.get('read') || '';
 const WRITE_KEY = urlParams.get('write') || '';
-document.getElementById('exportLink').href = '/export?key=' + encodeURIComponent(READ_KEY) + '&days=14';
+document.getElementById('exportLink').href = API_DATA + '?key=' + encodeURIComponent(READ_KEY);
 
 let DATA = { glucose: [], treatments: [], meals: [], exercises: [] };
 
