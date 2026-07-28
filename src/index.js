@@ -264,13 +264,6 @@ async function handleApiSummary(env, params) {
 // ---- /api/log: schrijven ----
 
 async function handleLog(env, params) {
-  const lastLogAt = await getState(env, 'last_log_at');
-  const now = Date.now();
-  if (lastLogAt && (now - Number(lastLogAt)) < 2000) {
-    return jsonOut({ status: 'error', message: 'Te snel achter elkaar, probeer over een paar seconden opnieuw.' });
-  }
-  await setState(env, 'last_log_at', String(now));
-
   const ts = params.get('ts');
   const tsText = ts ? ts.replace('T', ' ') + ':00' : fmtTimestamp(new Date());
 
