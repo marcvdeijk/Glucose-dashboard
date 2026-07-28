@@ -118,6 +118,139 @@ async function handleData(env, params) {
   return jsonOut(await getData(env, days));
 }
 
+// ---- /api/summary: samengevatte KPI's en patronen, klaar voor AI-analyse zonder ruwe data ----
+
+function computeGlucoseStats(vals) {
+  const n = vals.length;
+  if (!n) return null;
+  const sum = vals.reduce((s, v) => s + v, 0);
+  const avg = sum / n;
+  const variance = vals.reduce((s, v) => s + (v - avg) * (v - avg), 0) / n;
+  const cv = avg > 0 ? Math.round(1000 * Math.sqrt(variance) / avg) / 10 : 0;
+  const gmi = Math.round(10 * (3.31 + 0.02392 * avg * 18.0182)) / 10;
+  const low = vals.filter(v => v < 3.9).length;
+  const high = vals.filter(v => v > 10.0).length;
+  const inRange = n - low - high;
+  return {
+    n,
+    avg: Math.round(avg * 10) / 10,
+    cv,
+    gmi,
+    tirPct: Math.round(1000 * inRange / n) / 10,
+    tarPct: Math.round(1000 * high / n) / 10,
+    tbrPct: Math.round(1000 * low / n) / 10
+  };
+}
+
+function computePerDay(glucose) {
+  const byDay = {};
+  glucose.forEach(g => {
+    const d = g.ts.slice(0, 10);
+    (byDay[d] = byDay[d] || []).push(g.glucose);
+  });
+  return Object.keys(byDay).sort().map(d => {
+    const vals = byDay[d];
+    const stats = computeGlucoseStats(vals);
+    return {
+      date: d,
+      n: vals.length,
+      avg: stats.avg,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+      tirPct: stats.tirPct,
+      tarPct: stats.tarPct,
+      tbrPct: stats.tbrPct
+    };
+  });
+}
+
+function computeHourlyPattern(glucose) {
+  const byHour = {};
+  glucose.forEach(g => {
+    const h = new Date(g.ts).getHours();
+    (byHour[h] = byHour[h] || []).push(g.glucose);
+  });
+  const result = [];
+  for (let h = 0; h < 24; h++) {
+    const vals = byHour[h] || [];
+    result.push({
+      hour: h,
+      avg: vals.length ? Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10 : null,
+      n: vals.length
+    });
+  }
+  return result;
+}
+
+function findEpisodes(glucose, predicate) {
+  const episodes = [];
+  let current = null;
+  glucose.forEach(g => {
+    if (predicate(g.glucose)) {
+      if (!current) current = { start: g.ts, end: g.ts, values: [g.glucose] };
+      else { current.end = g.ts; current.values.push(g.glucose); }
+    } else if (current) {
+      episodes.push(current);
+      current = null;
+    }
+  });
+  if (current) episodes.push(current);
+  return episodes.map(e => ({
+    start: e.start,
+    end: e.end,
+    durationMin: Math.round((new Date(e.end) - new Date(e.start)) / 60000),
+    minGlucose: Math.min(...e.values),
+    maxGlucose: Math.max(...e.values),
+    n: e.values.length
+  }));
+}
+
+async function handleApiSummary(env, params) {
+  if (!env.READ_KEY || params.get('key') !== env.READ_KEY) {
+    return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
+  }
+  const days = Math.min(400, Math.max(1, Number(params.get('days')) || 7));
+  const data = await getData(env, days);
+  const glucose = data.glucose;
+
+  if (!glucose.length) {
+    return jsonOut({ status: 'ok', days, message: 'Geen glucosedata in deze periode.' });
+  }
+
+  const glucoseVals = glucose.map(g => g.glucose);
+  const overall = computeGlucoseStats(glucoseVals);
+  const perDay = computePerDay(glucose);
+  const hourlyPattern = computeHourlyPattern(glucose);
+  const hypoEpisodes = findEpisodes(glucose, v => v < 3.9);
+  const severeHyperEpisodes = findEpisodes(glucose, v => v > 13.9);
+
+  const bolusesInPeriod = data.foodLogRaw.filter(r => r.type === 'bolus' && r.amount > 0);
+  const totalBolusUnits = bolusesInPeriod.reduce((s, r) => s + r.amount, 0);
+
+  const sortedLog = data.foodLogRaw.slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const lastBolus = sortedLog.find(r => r.type === 'bolus') || null;
+  const lastMeal = sortedLog.find(r => r.type === 'khd') || null;
+  const lastExercise = sortedLog.find(r => r.type === 'beweging') || null;
+
+  return jsonOut({
+    status: 'ok',
+    period: { days, from: glucose[0].ts, to: glucose[glucose.length - 1].ts },
+    overall,
+    perDay,
+    hourlyPattern,
+    hypoEpisodes,
+    severeHyperEpisodes,
+    treatments: {
+      totalBolusUnits,
+      bolusCount: bolusesInPeriod.length,
+      avgUnitsPerDay: Math.round((totalBolusUnits / days) * 10) / 10
+    },
+    lastBolus,
+    lastMeal,
+    lastExercise
+  });
+}
+
 // ---- /api/log: schrijven ----
 
 async function handleLog(env, params) {
@@ -460,6 +593,10 @@ export default {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
       return handleLink(env, url.searchParams);
+    }
+
+    if (url.pathname === '/api/summary') {
+      return handleApiSummary(env, url.searchParams);
     }
 
     if (url.pathname === '/api/layout/get') {
