@@ -57,7 +57,7 @@ async function getData(env, days) {
   const treatments = treatmentRows.results.map(r => ({ ts: r.timestamp.replace(' ', 'T'), bolus: r.bolus }));
 
   const logRows = await env.DB.prepare(
-    "SELECT id, timestamp, description, tags, amount, context, type, source, bolus_type FROM food_log" +
+    "SELECT id, timestamp, description, tags, amount, context, type, source, bolus_type, absorption_score FROM food_log" +
     (cutoff ? " WHERE timestamp >= ?" : "") + " ORDER BY timestamp"
   ).bind(...(cutoff ? [cutoff] : [])).all();
 
@@ -80,6 +80,7 @@ async function getData(env, days) {
       id: r.id, ts: r.timestamp.replace(' ', 'T'), desc: r.description, tags: r.tags, amount: r.amount,
       context: r.context, type: r.type || '', source: r.source || 'Marc',
       bolusType: r.bolus_type || '',
+      absorptionScore: r.absorption_score != null ? r.absorption_score : null,
       bgAtEntry: r.type === 'bolus' ? nearestGlucose(glucose, r.timestamp.replace(' ', 'T')) : null,
       links
     };
@@ -274,10 +275,12 @@ async function handleLog(env, params) {
   const type = params.get('type') || 'khd';
   const source = params.get('source') || 'Marc';
   const bolusType = type === 'bolus' ? (params.get('bolusType') || '') : '';
+  const absorptionScore = (type === 'khd' && params.get('absorptionScore') !== null && params.get('absorptionScore') !== '')
+    ? Number(params.get('absorptionScore')) : null;
 
   const result = await env.DB.prepare(
-    'INSERT INTO food_log (timestamp, description, tags, amount, context, type, source, bolus_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(tsText, desc, tags, amount, context, type, source, bolusType).run();
+    'INSERT INTO food_log (timestamp, description, tags, amount, context, type, source, bolus_type, absorption_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(tsText, desc, tags, amount, context, type, source, bolusType, absorptionScore).run();
 
   const newId = result.meta && result.meta.last_row_id;
   return jsonOut({ status: 'ok', message: 'Gelogd: ' + tsText + ' - ' + desc, ts: tsText, id: newId });
@@ -292,7 +295,7 @@ async function handleUpdate(env, params) {
   }
 
   const existing = await env.DB.prepare(
-    'SELECT description, tags, amount, context, timestamp, type, bolus_type FROM food_log WHERE id = ?'
+    'SELECT description, tags, amount, context, timestamp, type, bolus_type, absorption_score FROM food_log WHERE id = ?'
   ).bind(id).first();
   if (!existing) {
     return jsonOut({ status: 'error', message: 'Niets gevonden om bij te werken.' });
@@ -306,12 +309,15 @@ async function handleUpdate(env, params) {
   const context = params.has('context') ? (params.get('context') || '') : existing.context;
   const type = params.has('type') && params.get('type') ? params.get('type') : existing.type;
   const bolusType = params.has('bolusType') ? (params.get('bolusType') || '') : (existing.bolus_type || '');
+  const absorptionScore = params.has('absorptionScore')
+    ? (params.get('absorptionScore') !== '' ? Number(params.get('absorptionScore')) : null)
+    : (existing.absorption_score != null ? existing.absorption_score : null);
   const tsParam = params.get('ts');
   const tsText = tsParam ? tsParam.replace('T', ' ') + ':00' : existing.timestamp;
 
   const result = await env.DB.prepare(
-    'UPDATE food_log SET description = ?, tags = ?, amount = ?, context = ?, timestamp = ?, type = ?, bolus_type = ? WHERE id = ?'
-  ).bind(desc, tags, amount, context, tsText, type, bolusType, id).run();
+    'UPDATE food_log SET description = ?, tags = ?, amount = ?, context = ?, timestamp = ?, type = ?, bolus_type = ?, absorption_score = ? WHERE id = ?'
+  ).bind(desc, tags, amount, context, tsText, type, bolusType, absorptionScore, id).run();
 
   if (!result.meta || result.meta.changes === 0) {
     return jsonOut({ status: 'error', message: 'Niets gevonden om bij te werken.' });
