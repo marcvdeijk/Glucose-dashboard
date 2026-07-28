@@ -345,6 +345,17 @@
             <div style="position:relative; flex:2; min-width:140px;"><div id="qlDesc" class="chipInput" contenteditable="true" data-placeholder="Wat heb je gegeten? (@tag om te taggen)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px; outline:none;"></div><div id="qlDescAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
             <input id="qlCarbs" type="number" placeholder="khd (optioneel)" style="flex:1; min-width:100px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
           </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
+            <span style="font-size:12px; color:#8a8a86;">Verwerking:</span>
+            <div class="pillRow" id="qlAbsorptionRow" style="flex:1; min-width:200px;">
+              <button type="button" class="dayBtn" data-score="0" title="Bliksemsnel (~45 min)" onclick="selectAbsorptionScore(0,this)">&#9889;</button>
+              <button type="button" class="dayBtn" data-score="1" title="Snel (~1.5-2u)" onclick="selectAbsorptionScore(1,this)">&#127939;</button>
+              <button type="button" class="dayBtn" data-score="2" title="Normaal (~2.5-3u)" onclick="selectAbsorptionScore(2,this)">&#128694;</button>
+              <button type="button" class="dayBtn" data-score="3" title="Standaard maaltijd (~3.5-4u)" onclick="selectAbsorptionScore(3,this)">&#127860;</button>
+              <button type="button" class="dayBtn" data-score="4" title="Vetrijk/traag (~5-6u)" onclick="selectAbsorptionScore(4,this)">&#127829;</button>
+              <button type="button" class="dayBtn" data-score="5" title="Zeer traag (~7-8u)" onclick="selectAbsorptionScore(5,this)">&#127830;</button>
+            </div>
+          </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
             <input id="qlContext" type="text" placeholder="Context (optioneel)" style="flex:1; min-width:140px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
           </div>
@@ -1014,6 +1025,19 @@ async function applyPickedLinks(prefix, newId){
   await loadData();
 }
 
+let qlAbsorptionScore = null;
+function selectAbsorptionScore(score, btn){
+  const row = document.getElementById('qlAbsorptionRow');
+  if (qlAbsorptionScore === score) {
+    qlAbsorptionScore = null;
+    row.querySelectorAll('.dayBtn').forEach(b => b.classList.remove('dayBtnActive'));
+    return;
+  }
+  qlAbsorptionScore = score;
+  row.querySelectorAll('.dayBtn').forEach(b => b.classList.remove('dayBtnActive'));
+  btn.classList.add('dayBtnActive');
+}
+
 async function quickLog(){
   const { clean: desc, tags: extractedTags } = getChipInputContent('qlDesc');
   const carbs = document.getElementById('qlCarbs').value.trim();
@@ -1024,12 +1048,15 @@ async function quickLog(){
 
   const tags = extractedTags.join(',');
 
-  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const absorptionParam = qlAbsorptionScore != null ? '&absorptionScore=' + encodeURIComponent(qlAbsorptionScore) : '';
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) + '&type=khd' + absorptionParam + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   const result = await sendLog(url, status);
   await applyPickedLinks('ql', result && result.id);
   document.getElementById('qlDesc').innerHTML = '';
   document.getElementById('qlCarbs').value = '';
   document.getElementById('qlContext').value = '';
+  qlAbsorptionScore = null;
+  document.getElementById('qlAbsorptionRow').querySelectorAll('.dayBtn').forEach(b => b.classList.remove('dayBtnActive'));
 }
 
 async function quickExercise(){
@@ -1642,7 +1669,7 @@ function renderRuweData(){
 
   ruweRows = (DATA.foodLogRaw||[]).map(r => ({
     id: r.id, ts: r.ts, type: r.type || 'khd', desc: r.desc, amount: r.amount, tags: r.tags, context: r.context,
-    bolusType: r.bolusType || '', bgAtEntry: r.bgAtEntry, links: r.links || []
+    bolusType: r.bolusType || '', bgAtEntry: r.bgAtEntry, absorptionScore: r.absorptionScore != null ? r.absorptionScore : null, links: r.links || []
   }));
 
   let rows = ruweRows;
@@ -1668,7 +1695,9 @@ function renderRuweData(){
       '</div>';
     const contextLabel = (r.type === 'bolus' && r.bgAtEntry != null)
       ? (bgPillHtml(r.bgAtEntry) + (r.context ? ' <span style="color:#8a8a86;">' + r.context + '</span>' : ''))
-      : (r.context ? '<span style="color:#8a8a86;">' + r.context + '</span>' : '');
+      : (r.type === 'khd' && r.absorptionScore != null)
+        ? (absorptionPillHtml(r.absorptionScore) + (r.context ? ' <span style="color:#8a8a86;">' + r.context + '</span>' : ''))
+        : (r.context ? '<span style="color:#8a8a86;">' + r.context + '</span>' : '');
     const tagChips = r.tags ? r.tags.split(/[,;]/).map(t => t.trim()).filter(Boolean).map(t => '<span class="rdChip tag">' + t + '</span>').join('') : '';
     const linkChips = r.links.length ? r.links.map(l => '<span class="rdChip link">&#8596; ' + (l.desc||l.type) + '</span>').join('') : '<span style="color:#75746f;">–</span>';
     tr.innerHTML =
@@ -1698,6 +1727,12 @@ function bgPillHtml(v){
   else if (v > 10.0) { bg = 'rgba(239,160,0,0.18)'; color = '#f5c869'; }
   else { bg = 'rgba(29,230,171,0.28)'; color = '#1fe6ab'; }
   return '<span class="rdBgPill" style="background:' + bg + '; color:' + color + ';">' + v + '</span>';
+}
+
+const ABSORPTION_EMOJI = ['\u26a1','\ud83c\udfc3','\ud83d\udeb6','\ud83c\udf7d\ufe0f','\ud83c\udf55','\ud83c\udf56'];
+function absorptionPillHtml(score){
+  if (score == null || score < 0 || score > 5) return '';
+  return '<span class="rdBgPill" style="background:rgba(216,90,48,0.18); color:#f0a080;">' + ABSORPTION_EMOJI[score] + '</span>';
 }
 
 function rdPrimaryLine(r){
@@ -1736,7 +1771,7 @@ function renderRuweDataCards(rows){
       '<div class="rdBody">' +
         '<div class="rdTopRow">' +
           '<span class="rdPrimary">' + rdPrimaryLine(r) + '</span>' +
-          '<div class="rdMeta">' + (r.type === 'bolus' ? bgPillHtml(r.bgAtEntry) : '') + '<span class="rdTime">' + fmtTime(r.ts) + '</span></div>' +
+          '<div class="rdMeta">' + (r.type === 'bolus' ? bgPillHtml(r.bgAtEntry) : (r.type === 'khd' ? absorptionPillHtml(r.absorptionScore) : '')) + '<span class="rdTime">' + fmtTime(r.ts) + '</span></div>' +
         '</div>' +
         (r.type === 'khd' && r.context ? '<div style="font-size:12px; color:#8a8a86; margin-top:1px;">' + r.context + '</div>' : '') +
         (r.type === 'beweging' && r.context ? '<div style="font-size:12px; color:#8a8a86; margin-top:1px;">' + r.context + '</div>' : '') +
