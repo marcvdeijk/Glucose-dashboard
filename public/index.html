@@ -280,14 +280,13 @@
       </div>
       </div>
 
-      <div class="grid-stack-item" gs-id="icr" gs-x="0" gs-y="10" gs-w="6" gs-h="3">
+      <div class="grid-stack-item" gs-id="icr" gs-x="0" gs-y="10" gs-w="6" gs-h="2">
       <div class="grid-stack-item-content">
-      <div class="card" style="height:100%; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
-        <div style="display:flex; align-items:baseline; justify-content:space-between;">
-          <span style="font-size:12px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">Insulinegevoeligheid — koolhydraten per eenheid</span>
-          <span style="font-size:11px; color:#75746f;">alleen gekoppelde maaltijden, inclusief gekoppelde correcties</span>
-        </div>
-        <canvas id="icrChart" height="80" style="margin-top:6px;"></canvas>
+      <div class="card" style="height:100%; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center;">
+        <div style="font-size:12px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Insulinegevoeligheid — koolhydraten per eenheid</div>
+        <div id="icrRowOchtend" style="font-size:15px; color:#e4e4e0; line-height:1.5;">Ochtend: -</div>
+        <div id="icrRowMiddag" style="font-size:15px; color:#e4e4e0; line-height:1.5;">Middag: -</div>
+        <div id="icrRowAvond" style="font-size:15px; color:#e4e4e0; line-height:1.5;">Avond: -</div>
       </div>
       </div>
       </div>
@@ -693,7 +692,7 @@ async function loadData(){
     render();
     renderLinkPickers();
     if (document.getElementById('viewHoogtepunten').style.display !== 'none') renderHighlights();
-    if (document.getElementById('homeTilesSection').style.display !== 'none') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrChart(); }
+    if (document.getElementById('homeTilesSection').style.display !== 'none') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrText(); }
   } catch (err) {
     errBox.textContent = 'Kon data niet ophalen: ' + err.message;
   }
@@ -1549,8 +1548,6 @@ function renderHomeTrendChart(){
   });
 }
 
-let icrChartInstance = null;
-
 function timeOfDayBucket(ts){
   const h = new Date(ts).getHours();
   if (h >= 5 && h < 12) return 'Ochtend';
@@ -1559,17 +1556,19 @@ function timeOfDayBucket(ts){
   return 'Nacht';
 }
 
-function renderIcrChart(){
-  const canvas = document.getElementById('icrChart');
-  if (!canvas) return;
+function renderIcrText(){
+  const rowOchtend = document.getElementById('icrRowOchtend');
+  if (!rowOchtend) return;
 
   const all = DATA.foodLogRaw || [];
   const byId = {};
   all.forEach(r => { byId[r.id] = r; });
 
-  const buckets = { Ochtend: [], Middag: [], Avond: [], Nacht: [] };
+  const buckets = { Ochtend: [], Middag: [], Avond: [] };
 
   all.filter(r => r.type === 'khd' && r.amount > 0 && r.links && r.links.length).forEach(meal => {
+    const bucket = timeOfDayBucket(meal.ts);
+    if (!buckets[bucket]) return; // Nacht wordt niet getoond
     let bolusUnits = 0;
     meal.links.forEach(l => {
       const full = byId[l.id];
@@ -1578,60 +1577,26 @@ function renderIcrChart(){
       }
     });
     if (bolusUnits > 0) {
-      const ratio = meal.amount / bolusUnits;
-      buckets[timeOfDayBucket(meal.ts)].push(ratio);
+      buckets[bucket].push(meal.amount / bolusUnits);
     }
   });
 
-  const order = ['Ochtend', 'Middag', 'Avond', 'Nacht'];
   const MIN_N = 3;
-  const values = [];
-  const counts = [];
-  const colors = [];
-  order.forEach(k => {
-    const arr = buckets[k];
-    counts.push(arr.length);
-    if (arr.length >= MIN_N) {
-      values.push(arr.reduce((s, v) => s + v, 0) / arr.length);
-      colors.push('#7f77dd');
-    } else {
-      values.push(0);
-      colors.push('rgba(255,255,255,0.08)');
-    }
-  });
+  const rowEls = { Ochtend: rowOchtend, Middag: document.getElementById('icrRowMiddag'), Avond: document.getElementById('icrRowAvond') };
 
-  if (icrChartInstance) icrChartInstance.destroy();
-  icrChartInstance = new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: order,
-      datasets: [{ data: values, backgroundColor: colors, borderRadius: 6, maxBarThickness: 60 }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        datalabels: { display: false },
-        tooltip: {
-          enabled: true,
-          displayColors: false,
-          backgroundColor: 'rgba(20,20,22,0.95)',
-          titleColor: '#e4e4e0',
-          bodyColor: '#7f77dd',
-          callbacks: {
-            label: (item) => {
-              const n = counts[item.dataIndex];
-              if (n < MIN_N) return 'Onvoldoende data (n=' + n + ', minimaal ' + MIN_N + ' nodig)';
-              return '1:' + values[item.dataIndex].toFixed(1) + ' (n=' + n + ')';
-            }
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#8a8a86', font: { size: 13 } }, grid: { display: false } },
-        y: { ticks: { color: '#8a8a86', font: { size: 12 } }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true }
-      }
+  ['Ochtend', 'Middag', 'Avond'].forEach(label => {
+    const arr = buckets[label];
+    const n = arr.length;
+    let text;
+    if (n === 0) {
+      text = label + ': 0 (nog niks gelogd)';
+    } else if (n < MIN_N) {
+      text = label + ': onvoldoende data (n=' + n + ')';
+    } else {
+      const ratio = arr.reduce((s, v) => s + v, 0) / n;
+      text = label + ': 1:' + ratio.toFixed(1);
     }
+    if (rowEls[label]) rowEls[label].textContent = text;
   });
 }
 
@@ -1652,7 +1617,7 @@ function showTab(tab){
 
   if (tab === 'hoogtepunten') renderHighlights();
   if (tab === 'ruwedata') renderRuweData();
-  if (tab === 'home') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrChart(); }
+  if (tab === 'home') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrText(); }
 }
 
 const ICON_EDIT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
@@ -2134,7 +2099,7 @@ let layoutEditMode = false;
 let layoutSaveTimer = null;
 
 function resizeHomeCharts(){
-  [iobChartInstance, activityChartInstance, homeTrendChartInstance, icrChartInstance].forEach(c => { if (c) c.resize(); });
+  [iobChartInstance, activityChartInstance, homeTrendChartInstance].forEach(c => { if (c) c.resize(); });
 }
 
 function initHomeGrid(){
