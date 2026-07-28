@@ -173,16 +173,16 @@
 
   <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; margin:12px 0;">
     <div class="pillRow">
-      <button type="button" class="dayBtn dayBtnActive" data-kpi="today" onclick="selectKpiPeriod('today', this)">Dag</button>
-      <button type="button" class="dayBtn" data-kpi="24" onclick="selectKpiPeriod('24', this)">24u</button>
+      <button type="button" class="dayBtn" data-kpi="today" onclick="selectKpiPeriod('today', this)">Dag</button>
+      <button type="button" class="dayBtn dayBtnActive" data-kpi="24" onclick="selectKpiPeriod('24', this)">24u</button>
       <button type="button" class="dayBtn" data-kpi="7" onclick="selectKpiPeriod('7', this)">7d</button>
       <button type="button" class="dayBtn" data-kpi="30" onclick="selectKpiPeriod('30', this)">30d</button>
       <button type="button" class="dayBtn" data-kpi="90" onclick="selectKpiPeriod('90', this)">90d</button>
     </div>
     <div class="pillRow">
-      <button type="button" class="dayBtn dayBtnActive" data-mode="3" onclick="selectMode('3', this)">3u</button>
+      <button type="button" class="dayBtn" data-mode="3" onclick="selectMode('3', this)">3u</button>
       <button type="button" class="dayBtn" data-mode="6" onclick="selectMode('6', this)">6u</button>
-      <button type="button" class="dayBtn" data-mode="12" onclick="selectMode('12', this)">12u</button>
+      <button type="button" class="dayBtn dayBtnActive" data-mode="12" onclick="selectMode('12', this)">12u</button>
       <button type="button" class="dayBtn" data-mode="24" onclick="selectMode('24', this)">24u</button>
       <select id="daySelect" style="display:none;"></select>
     </div>
@@ -707,7 +707,7 @@ function manualRefresh(){
 }
 
 const daySel = document.getElementById('daySelect');
-let currentMode = '3';
+let currentMode = '12';
 
 function selectMode(mode, btn){
   currentMode = mode;
@@ -831,7 +831,7 @@ function renderBgHeader(){
 
 }
 
-let currentKpiPeriod = 'today';
+let currentKpiPeriod = '24';
 
 function selectKpiPeriod(period, btn){
   currentKpiPeriod = period;
