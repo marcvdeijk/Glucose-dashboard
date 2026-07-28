@@ -50,6 +50,12 @@
   .rdChip { font-size:10px; font-weight:500; padding:2px 7px; border-radius:999px; }
   .rdChip.tag { background:rgba(93,202,165,0.14); color:#94ddc4; }
   .rdChip.link { background:rgba(127,119,221,0.14); color:#bcb4f0; }
+  .chipInput { min-height:22px; display:flex; flex-wrap:wrap; align-items:center; gap:3px; cursor:text; }
+  .chipInput:empty:before { content:attr(data-placeholder); color:#75746f; }
+  .tagChip { display:inline-flex; align-items:center; padding:1px 7px; border-radius:999px; font-size:0.85em; font-weight:500; white-space:nowrap; user-select:none; }
+  .tagChip-bolus { background:rgba(55,138,221,0.18); color:#8ec4f7; border:1px solid rgba(55,138,221,0.45); }
+  .tagChip-khd { background:rgba(226,75,74,0.18); color:#f0908d; border:1px solid rgba(226,75,74,0.45); }
+  .tagChip-beweging { background:rgba(126,223,84,0.18); color:#a6e888; border:1px solid rgba(126,223,84,0.45); }
   .rdActions { display:flex; gap:0px; margin-left:4px; }
   .rdActions button { background:transparent; border:none; cursor:pointer; padding:4px; opacity:0.55; }
   @media (max-width:899px) {
@@ -316,7 +322,7 @@
               <option value="correctie">Correctie</option>
               <option value="na-bolus">Na-bolus</option>
             </select>
-            <div style="position:relative; flex:2; min-width:140px;"><input id="qbReason" type="text" placeholder="Reden (optioneel, @tag om te taggen)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;"><div id="qbReasonAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
+            <div style="position:relative; flex:2; min-width:140px;"><div id="qbReason" class="chipInput" contenteditable="true" data-placeholder="Reden (optioneel, @tag om te taggen)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px; outline:none;"></div><div id="qbReasonAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
             <input id="qbDateOnly" type="date" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px;">
@@ -336,7 +342,7 @@
 
         <div style="width:33.333%; flex-shrink:0; padding:0 2px; box-sizing:border-box;">
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <div style="position:relative; flex:2; min-width:140px;"><input id="qlDesc" type="text" placeholder="Wat heb je gegeten? (@tag om te taggen)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;"><div id="qlDescAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
+            <div style="position:relative; flex:2; min-width:140px;"><div id="qlDesc" class="chipInput" contenteditable="true" data-placeholder="Wat heb je gegeten? (@tag om te taggen)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px; outline:none;"></div><div id="qlDescAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
             <input id="qlCarbs" type="number" placeholder="khd (optioneel)" style="flex:1; min-width:100px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
@@ -365,7 +371,7 @@
               <option value="HIIT">HIIT</option>
               <option value="Krachttraining">Krachttraining</option>
             </select>
-            <div style="position:relative; flex:2; min-width:140px;"><input id="qeActivity" type="text" placeholder="Activiteit (bijv. hardlopen, @tag)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;"><div id="qeActivityAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
+            <div style="position:relative; flex:2; min-width:140px;"><div id="qeActivity" class="chipInput" contenteditable="true" data-placeholder="Activiteit (bijv. hardlopen, @tag)" style="width:100%; box-sizing:border-box; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:16px; outline:none;"></div><div id="qeActivityAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div></div>
             <input id="qeDuration" type="number" placeholder="Duur (min, optioneel)" style="flex:1; min-width:120px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
@@ -489,50 +495,98 @@ function rebuildDaySelect(){
   }
 }
 
-function extractTags(text){
-  const re = /@([a-zA-Z0-9\-]+)/g;
+const TAG_COLOR_HEX = { 'tagChip-bolus': '#378add', 'tagChip-khd': '#e24b4a', 'tagChip-beweging': '#7edf54' };
+
+function getChipInputContent(id){
+  const el = document.getElementById(id);
   const tags = [];
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    tags.push(m[1].toLowerCase());
-  }
-  const clean = text.replace(/@/g, '').replace(/\s+/g, ' ').trim();
+  let clean = '';
+  el.childNodes.forEach(node => {
+    if (node.nodeType === 3) {
+      const text = node.textContent;
+      const re = /@([a-zA-Z0-9\-]+)/g;
+      let last = 0, m;
+      while ((m = re.exec(text)) !== null) {
+        tags.push(m[1].toLowerCase());
+        clean += text.slice(last, m.index);
+        last = re.lastIndex;
+      }
+      clean += text.slice(last);
+    } else if (node.nodeType === 1 && node.classList && node.classList.contains('tagChip')) {
+      if (node.dataset.tag) tags.push(node.dataset.tag.toLowerCase());
+      clean += ' ';
+    } else if (node.nodeType === 1) {
+      clean += ' ';
+    }
+  });
+  clean = clean.replace(/\s+/g, ' ').trim();
   return { clean, tags: [...new Set(tags)] };
 }
 
-function findActiveAtToken(input){
-  const pos = input.selectionStart;
-  const val = input.value;
-  const upToCursor = val.slice(0, pos);
+function findActiveAtTokenCE(el){
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  if (!el.contains(range.startContainer)) return null;
+  const node = range.startContainer;
+  if (node.nodeType !== 3) return null;
+  const text = node.textContent;
+  const pos = range.startOffset;
+  const upToCursor = text.slice(0, pos);
   const m = upToCursor.match(/@([a-zA-Z0-9\-]*)$/);
   if (!m) return null;
-  return { partial: m[1].toLowerCase(), start: m.index, end: pos };
+  return { partial: m[1].toLowerCase(), node, start: m.index, end: pos };
 }
 
-function attachTagAutocomplete(inputId){
+function insertChip(node, start, end, tag, colorClass){
+  const text = node.textContent;
+  const before = text.slice(0, start);
+  const after = text.slice(end);
+  const parent = node.parentNode;
+
+  const beforeNode = document.createTextNode(before);
+  const chip = document.createElement('span');
+  chip.className = 'tagChip ' + colorClass;
+  chip.contentEditable = 'false';
+  chip.dataset.tag = tag;
+  chip.textContent = '@' + tag;
+  const afterNode = document.createTextNode('\u00A0' + after);
+
+  parent.replaceChild(afterNode, node);
+  parent.insertBefore(chip, afterNode);
+  parent.insertBefore(beforeNode, chip);
+
+  const range = document.createRange();
+  const sel = window.getSelection();
+  range.setStart(afterNode, 1);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function attachTagAutocomplete(inputId, colorClass){
   const input = document.getElementById(inputId);
   const dropdown = document.getElementById(inputId + 'Autocomplete');
   if (!input || !dropdown) return;
 
   function render(){
-    const token = findActiveAtToken(input);
+    const token = findActiveAtTokenCE(input);
     if (!token) { dropdown.style.display = 'none'; return; }
     const all = DATA.tagFrequency || [];
     const matches = all.filter(t => t.tag.startsWith(token.partial)).slice(0, 6);
     if (!matches.length) { dropdown.style.display = 'none'; return; }
+    const dotColor = TAG_COLOR_HEX[colorClass] || '#e4e4e0';
     dropdown.innerHTML = matches.map(t =>
-      '<div class="acItem" data-tag="' + t.tag + '" style="padding:8px 10px; font-size:13px; cursor:pointer;">' + t.tag + '</div>'
+      '<div class="acItem" data-tag="' + t.tag + '" style="display:flex; align-items:center; padding:8px 10px; font-size:13px; cursor:pointer;">' +
+      '<span style="display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:8px; background:' + dotColor + ';"></span>' + t.tag +
+      '</div>'
     ).join('');
     dropdown.style.display = 'block';
     dropdown.querySelectorAll('.acItem').forEach(el => {
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
         const tag = el.dataset.tag;
-        const val = input.value;
-        input.value = val.slice(0, token.start) + '@' + tag + ' ' + val.slice(token.end);
-        const newPos = token.start + tag.length + 2;
-        input.focus();
-        input.setSelectionRange(newPos, newPos);
+        insertChip(token.node, token.start, token.end, tag, colorClass);
         dropdown.style.display = 'none';
       });
       el.addEventListener('mouseenter', () => { el.style.background = 'rgba(255,255,255,0.08)'; });
@@ -540,9 +594,13 @@ function attachTagAutocomplete(inputId){
     });
   }
 
-  input.addEventListener('input', render);
+  input.addEventListener('input', () => {
+    if (!input.textContent.trim() && !input.querySelector('.tagChip')) input.innerHTML = '';
+    render();
+  });
   input.addEventListener('keyup', render);
   input.addEventListener('click', render);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
   input.addEventListener('blur', () => { setTimeout(() => { dropdown.style.display = 'none'; }, 150); });
 }
 
@@ -957,33 +1015,31 @@ async function applyPickedLinks(prefix, newId){
 }
 
 async function quickLog(){
-  const descRaw = document.getElementById('qlDesc').value.trim();
+  const { clean: desc, tags: extractedTags } = getChipInputContent('qlDesc');
   const carbs = document.getElementById('qlCarbs').value.trim();
   const context = document.getElementById('qlContext').value.trim();
   const ts = buildTs('ql', 'qlTimeOnly');
   const status = document.getElementById('qlStatus');
-  if (!descRaw){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
+  if (!desc){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
 
-  const { clean: desc, tags: extractedTags } = extractTags(descRaw);
   const tags = extractedTags.join(',');
 
   const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) + '&type=khd' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   const result = await sendLog(url, status);
   await applyPickedLinks('ql', result && result.id);
-  document.getElementById('qlDesc').value = '';
+  document.getElementById('qlDesc').innerHTML = '';
   document.getElementById('qlCarbs').value = '';
   document.getElementById('qlContext').value = '';
 }
 
 async function quickExercise(){
   const type = document.getElementById('qeType').value;
-  const activityRaw = document.getElementById('qeActivity').value.trim();
+  const { clean: desc, tags: extractedTags } = getChipInputContent('qeActivity');
   const duration = document.getElementById('qeDuration').value.trim();
   const ts = buildTs('qe', 'qeTimeOnly');
   const status = document.getElementById('qeStatus');
-  if (!activityRaw){ status.textContent = 'Vul de activiteit in.'; return; }
+  if (!desc){ status.textContent = 'Vul de activiteit in.'; return; }
 
-  const { clean: desc, tags: extractedTags } = extractTags(activityRaw);
   const tagSlug = type.toLowerCase();
   const tags = [tagSlug, ...extractedTags].join(',');
   const context = duration ? ('Duur: ' + duration + ' minuten.') : '';
@@ -991,19 +1047,18 @@ async function quickExercise(){
   const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&tags=' + encodeURIComponent(tags) + '&carbs=' + encodeURIComponent('0') + '&context=' + encodeURIComponent(context) + '&type=beweging' + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   const result = await sendLog(url, status);
   await applyPickedLinks('qe', result && result.id);
-  document.getElementById('qeActivity').value = '';
+  document.getElementById('qeActivity').innerHTML = '';
   document.getElementById('qeDuration').value = '';
 }
 
 async function quickBolus(){
   const units = document.getElementById('qbUnits').value.trim();
   const bolusType = document.getElementById('qbType').value;
-  const reasonRaw = document.getElementById('qbReason').value.trim();
+  const { clean: context, tags: extractedTags } = getChipInputContent('qbReason');
   const ts = buildTs('qb', 'qbTimeOnly');
   const status = document.getElementById('qbStatus');
   if (!units){ status.textContent = 'Vul het aantal eenheden in.'; return; }
 
-  const { clean: context, tags: extractedTags } = extractTags(reasonRaw);
   const tags = extractedTags.join(',');
   const desc = 'Bolus ' + units + 'E';
 
@@ -1011,7 +1066,7 @@ async function quickBolus(){
   const result = await sendLog(url, status);
   await applyPickedLinks('qb', result && result.id);
   document.getElementById('qbUnits').value = '';
-  document.getElementById('qbReason').value = '';
+  document.getElementById('qbReason').innerHTML = '';
 }
 
 // Tijd- en datumvelden vullen met huidig moment. Wordt aangeroepen bij laden,
@@ -2120,9 +2175,9 @@ async function resetLayoutToDefault(){
   }
 }
 
-attachTagAutocomplete('qlDesc');
-attachTagAutocomplete('qbReason');
-attachTagAutocomplete('qeActivity');
+attachTagAutocomplete('qlDesc', 'tagChip-khd');
+attachTagAutocomplete('qbReason', 'tagChip-bolus');
+attachTagAutocomplete('qeActivity', 'tagChip-beweging');
 initHomeGrid();
 loadData();
 setInterval(loadData, 60000);

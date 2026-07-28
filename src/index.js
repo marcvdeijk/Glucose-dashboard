@@ -110,7 +110,17 @@ async function getData(env, days) {
   ).first();
   const sensorStart = sensorRow ? sensorRow.timestamp.replace(' ', 'T') : null;
 
-  return { glucose, treatments, meals, exercises, foodLogRaw, sensorStart };
+  const tagCounts = {};
+  logRows.results.forEach(r => {
+    (r.tags || '').split(/[,;]/).map(t => t.trim().toLowerCase()).filter(Boolean).forEach(t => {
+      tagCounts[t] = (tagCounts[t] || 0) + 1;
+    });
+  });
+  const tagFrequency = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag, count]) => ({ tag, count }));
+
+  return { glucose, treatments, meals, exercises, foodLogRaw, sensorStart, tagFrequency };
 }
 
 async function handleData(env, params) {
