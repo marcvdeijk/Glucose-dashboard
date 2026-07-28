@@ -552,6 +552,146 @@ async function handleLink(env, params) {
   return jsonOut({ status: 'ok', message: 'Koppelingen bijgewerkt.', id, linkTo });
 }
 
+// ---- /summary: platte, server-side gerenderde HTML-samenvatting (voor AI's die geen JS/JSON/OAuth aankunnen) ----
+
+async function handleSummary(env, params) {
+  if (!env.READ_KEY || params.get('key') !== env.READ_KEY) {
+    return new Response('Toegang geweigerd.', { status: 403, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
+
+  const data = await getData(env);
+  const glucose = data.glucose;
+  const latest = glucose[glucose.length - 1];
+  const prev = glucose[glucose.length - 2];
+  const trend = (latest && prev) ? (latest.glucose - prev.glucose) : 0;
+  const trendLabel = trend > 0.05 ? 'stijgend' : (trend < -0.05 ? 'dalend' : 'stabiel');
+
+  const cutoff24 = Date.now() - 24 * 3600000;
+  const last24 = glucose.filter(g => new Date(g.ts).getTime() >= cutoff24);
+  const low = last24.filter(g => g.glucose < 3.9).length;
+  const high = last24.filter(g => g.glucose > 10.0).length;
+  const inRange = last24.length - low - high;
+  const pct = n => last24.length ? Math.round(n / last24.length * 100) : 0;
+  const avg = last24.length ? (last24.reduce((s, g) => s + g.glucose, 0) / last24.length).toFixed(1) : '-';
+
+  const allLog = data.foodLogRaw.slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  const lastBolus = allLog.find(r => r.type === 'bolus');
+  const lastMeal = allLog.find(r => r.type === 'khd');
+  const lastExercise = allLog.find(r => r.type === 'beweging');
+  const recent = allLog.slice(0, 15);
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function fmt(ts) { return new Date(ts).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+
+  const html = '<!DOCTYPE html>\n' +
+'<html lang="nl">\n' +
+'<head><meta charset="utf-8"><title>Glucose-dashboard - samenvatting</title></head>\n' +
+'<body>\n' +
+'<h1>Glucose-dashboard - samenvatting</h1>\n' +
+'<p>Gegenereerd op ' + esc(new Date().toLocaleString('nl-NL')) + '</p>\n' +
+'<h2>Huidige status</h2>\n' +
+'<ul>\n' +
+'<li>Laatste glucosewaarde: ' + (latest ? esc(latest.glucose) + ' mmol/L' : 'onbekend') + (latest ? ' (' + esc(fmt(latest.ts)) + ')' : '') + '</li>\n' +
+'<li>Trend: ' + esc(trendLabel) + '</li>\n' +
+'</ul>\n' +
+'<h2>Laatste 24 uur</h2>\n' +
+'<ul>\n' +
+'<li>Gemiddelde: ' + esc(avg) + ' mmol/L</li>\n' +
+'<li>Low: ' + pct(low) + '%, In range: ' + pct(inRange) + '%, High: ' + pct(high) + '%</li>\n' +
+'</ul>\n' +
+'<h2>Laatste bolus</h2>\n' +
+'<p>' + (lastBolus ? esc(lastBolus.amount) + 'E (' + esc(lastBolus.bolusType || 'onbekend type') + ') om ' + esc(fmt(lastBolus.ts)) + (lastBolus.context ? ' - ' + esc(lastBolus.context) : '') : 'Geen bolus gevonden.') + '</p>\n' +
+'<h2>Laatste maaltijd</h2>\n' +
+'<p>' + (lastMeal ? esc(lastMeal.desc) + ' (' + esc(lastMeal.amount) + 'g khd) om ' + esc(fmt(lastMeal.ts)) : 'Geen maaltijd gevonden.') + '</p>\n' +
+'<h2>Laatste beweging</h2>\n' +
+'<p>' + (lastExercise ? esc(lastExercise.desc) + ' om ' + esc(fmt(lastExercise.ts)) + (lastExercise.context ? ' (' + esc(lastExercise.context) + ')' : '') : 'Geen beweging gevonden.') + '</p>\n' +
+'<h2>Recente log-entries (laatste 15)</h2>\n' +
+'<ul>\n' +
+recent.map(r => '<li>' + esc(fmt(r.ts)) + ' - ' + esc(r.type) + ': ' + esc(r.desc) + ' (' + esc(r.amount) + (r.type === 'bolus' ? 'E' : 'g') + ')' + (r.context ? ' - ' + esc(r.context) : '') + (r.tags ? ' [tags: ' + esc(r.tags) + ']' : '') + '</li>').join('\n') +
+'\n</ul>\n' +
+'</body>\n</html>';
+
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+// ---- /export: volledige platte-tekst dump (glucose + logboek), on-demand uit de database ----
+
+async function handleExport(env, params) {
+  if (!env.READ_KEY || params.get('key') !== env.READ_KEY) {
+    return new Response('Toegang geweigerd.', { status: 403, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
+  const days = Math.min(400, Math.max(1, Number(params.get('days')) || 7));
+  const data = await getData(env, days);
+  const cutoff = Date.now() - days * 24 * 3600000;
+
+  function fmt(ts) { return new Date(ts).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function dateOnly(ts) { return new Date(ts).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }); }
+
+  const glucose = data.glucose.filter(g => new Date(g.ts).getTime() >= cutoff);
+  const logs = data.foodLogRaw
+    .filter(r => new Date(r.ts).getTime() >= cutoff)
+    .sort((a, b) => new Date(b.ts) - new Date(a.ts));
+
+  let out = '';
+  out += 'GLUCOSE-DASHBOARD - VOLLEDIGE DATA-EXPORT\n';
+  out += 'Periode: laatste ' + days + ' dagen. Gegenereerd: ' + new Date().toLocaleString('nl-NL') + '\n';
+  out += 'Type 1 diabetes. Snelwerkend: Novorapid. Basaal: Lantus (normaal 14E per avond, 12E op bokstraining-dagen, lopend experiment).\n';
+  out += '=================================================================\n\n';
+
+  function nearbyGlucoseSnippet(ts) {
+    const center = new Date(ts).getTime();
+    const offsets = [[-30, '-30m'], [0, 'moment'], [30, '+30m'], [60, '+60m']];
+    const parts = [];
+    offsets.forEach(([offsetMin, label]) => {
+      const target = center + offsetMin * 60000;
+      let best = null, bestDiff = Infinity;
+      data.glucose.forEach(g => {
+        const diff = Math.abs(new Date(g.ts).getTime() - target);
+        if (diff < bestDiff && diff < 10 * 60000) { bestDiff = diff; best = g.glucose; }
+      });
+      if (best != null) parts.push(label + ': ' + best);
+    });
+    return parts.length ? parts.join(', ') : null;
+  }
+
+  out += '--- LOGBOEK (' + logs.length + ' entries, meest recent eerst, altijd volledig) ---\n\n';
+  logs.forEach(r => {
+    out += '[' + fmt(r.ts) + '] ' + r.type.toUpperCase();
+    if (r.type === 'bolus') out += ' ' + r.bolusType + ' - ' + r.amount + 'E' + (r.bgAtEntry != null ? ' (BG ' + r.bgAtEntry + ')' : '');
+    else if (r.type === 'khd') out += ' - ' + r.desc + ' (' + r.amount + 'g khd)';
+    else out += ' - ' + r.desc + (r.amount ? ' (' + r.amount + ')' : '');
+    if (r.context) out += '\n  Context: ' + r.context;
+    if (r.tags) out += '\n  Tags: ' + r.tags;
+    if (r.links && r.links.length) out += '\n  Gekoppeld aan: ' + r.links.map(l => l.desc || l.type).join(', ');
+    const snippet = nearbyGlucoseSnippet(r.ts);
+    if (snippet) out += '\n  BG rond dit moment: ' + snippet;
+    out += '\n\n';
+  });
+
+  if (days <= 3) {
+    out += '--- GLUCOSEWAARDEN (' + glucose.length + ' metingen, elke ~5 min, chronologisch) ---\n\n';
+    glucose.forEach(g => { out += fmt(g.ts) + ': ' + g.glucose + ' mmol/L\n'; });
+  } else {
+    const byDay = {};
+    glucose.forEach(g => {
+      const d = dateOnly(g.ts);
+      (byDay[d] = byDay[d] || []).push(g.glucose);
+    });
+    const dayKeys = Object.keys(byDay).sort((a, b) => new Date(a) - new Date(b));
+    out += '--- GLUCOSE PER DAG (' + dayKeys.length + ' dagen, samengevat - periode >3 dagen dus geen losse metingen) ---\n\n';
+    dayKeys.forEach(d => {
+      const vals = byDay[d];
+      const avg = (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1);
+      const low = Math.round(vals.filter(v => v < 3.9).length / vals.length * 100);
+      const high = Math.round(vals.filter(v => v > 10.0).length / vals.length * 100);
+      const inRange = 100 - low - high;
+      out += d + ': gemiddelde ' + avg + ' mmol/L, low ' + low + '%, in range ' + inRange + '%, high ' + high + '% (n=' + vals.length + ')\n';
+    });
+  }
+
+  return new Response(out, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+}
+
 // ---- Router ----
 
 export default {
@@ -607,6 +747,19 @@ export default {
 
     if (url.pathname === '/api/summary') {
       return handleApiSummary(env, url.searchParams);
+    }
+
+    if (url.pathname === '/export') {
+      return handleExport(env, url.searchParams);
+    }
+
+    if (url.pathname === '/summary') {
+      return handleSummary(env, url.searchParams);
+    }
+
+    if (url.pathname.startsWith('/s/')) {
+      const pathKey = url.pathname.slice(3);
+      return handleSummary(env, new URLSearchParams({ key: pathKey }));
     }
 
     if (url.pathname === '/api/layout/get') {
