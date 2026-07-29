@@ -718,7 +718,7 @@ function selectMode(mode, btn){
 
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}); }
 function fmtDayTime(ts){ return new Date(ts).toLocaleDateString('nl-NL', {day:'numeric', month:'short'}) + ' ' + fmtTime(ts); }
-function fmtShortDate(ts){ const d = new Date(ts); return d.getDate() + '-' + (d.getMonth()+1); }
+function fmtShortDate(ts){ const d = new Date(ts); const dagen=['zo','ma','di','wo','do','vr','za']; return dagen[d.getDay()] + ' ' + d.getDate() + '-' + (d.getMonth()+1); }
 function zoneColor(v){ if (v < 3.9) return '#e24b4a'; if (v > 10.0) return '#efa000'; return '#5dcaa5'; }
 function dayLabel(ts){
   const d = new Date(ts);
@@ -1541,7 +1541,7 @@ function renderHomeTrendChart(){
       responsive: true,
       plugins: { legend:{display:false}, tooltip:{enabled:false}, datalabels:{display:false} },
       scales: {
-        x: { ticks:{ color:'#8a8a86', font:{size:12}, maxTicksLimit:6, autoSkip:true }, grid:{display:false} },
+        x: { ticks:{ color:'#8a8a86', font:{size:12}, maxTicksLimit:6, autoSkip:true, callback: function(value, index, ticks){ return value === 0 ? '' : this.getLabelForValue(value); } }, grid:{display:false} },
         y: { display:false }
       }
     }
