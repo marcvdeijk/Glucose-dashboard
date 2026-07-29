@@ -503,29 +503,40 @@ async function handleMcp(request, env) {
 
 // ---- /api/layout/*: indeling van de Home-widgets (opgeslagen via kv_state) ----
 
-async function handleLayoutGet(env) {
-  const layout = await getState(env, 'home_layout');
+function layoutDevice(params) {
+  return params.get('device') === 'mobile' ? 'mobile' : 'desktop';
+}
+
+async function handleLayoutGet(env, params) {
+  const device = layoutDevice(params);
+  let layout = await getState(env, 'home_layout_' + device);
+  if (!layout) layout = await getState(env, 'home_layout'); // migratie: oude gedeelde layout als startpunt
   return jsonOut({ status: 'ok', layout: layout || null });
 }
 
 async function handleLayoutSave(env, params) {
+  const device = layoutDevice(params);
   const layout = params.get('layout');
   if (!layout) return jsonOut({ status: 'error', message: 'Geen layout opgegeven.' });
-  await setState(env, 'home_layout', layout);
+  await setState(env, 'home_layout_' + device, layout);
   return jsonOut({ status: 'ok' });
 }
 
-async function handleLayoutSetDefault(env) {
-  const layout = await getState(env, 'home_layout');
+async function handleLayoutSetDefault(env, params) {
+  const device = layoutDevice(params);
+  let layout = await getState(env, 'home_layout_' + device);
+  if (!layout) layout = await getState(env, 'home_layout'); // migratie
   if (!layout) return jsonOut({ status: 'error', message: 'Nog geen indeling om als standaard op te slaan.' });
-  await setState(env, 'home_layout_default', layout);
+  await setState(env, 'home_layout_default_' + device, layout);
   return jsonOut({ status: 'ok' });
 }
 
-async function handleLayoutReset(env) {
-  const def = await getState(env, 'home_layout_default');
+async function handleLayoutReset(env, params) {
+  const device = layoutDevice(params);
+  let def = await getState(env, 'home_layout_default_' + device);
+  if (!def) def = await getState(env, 'home_layout_default'); // migratie
   if (def) {
-    await setState(env, 'home_layout', def);
+    await setState(env, 'home_layout_' + device, def);
   }
   return jsonOut({ status: 'ok', layout: def || null });
 }
@@ -765,7 +776,7 @@ export default {
       if (!env.READ_KEY || url.searchParams.get('key') !== env.READ_KEY) {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
-      return handleLayoutGet(env);
+      return handleLayoutGet(env, url.searchParams);
     }
 
     if (url.pathname === '/api/layout/save') {
@@ -779,14 +790,14 @@ export default {
       if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
-      return handleLayoutSetDefault(env);
+      return handleLayoutSetDefault(env, url.searchParams);
     }
 
     if (url.pathname === '/api/layout/reset') {
       if (!env.WRITE_KEY || url.searchParams.get('key') !== env.WRITE_KEY) {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
-      return handleLayoutReset(env);
+      return handleLayoutReset(env, url.searchParams);
     }
 
     if (url.pathname === '/mcp') {

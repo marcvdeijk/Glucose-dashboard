@@ -2140,14 +2140,14 @@ async function saveHomeLayout(){
   if (!WRITE_KEY || !gridStackInstance) return;
   const layout = JSON.stringify(gridStackInstance.save(false));
   try {
-    await fetch('/api/layout/save?key=' + encodeURIComponent(WRITE_KEY) + '&layout=' + encodeURIComponent(layout));
+    await fetch('/api/layout/save?key=' + encodeURIComponent(WRITE_KEY) + '&layout=' + encodeURIComponent(layout) + '&device=' + (window.innerWidth < 900 ? 'mobile' : 'desktop'));
   } catch (err) { /* stil, niet storend voor de gebruiker */ }
 }
 
 async function loadHomeLayout(){
   if (!READ_KEY || !gridStackInstance) return;
   try {
-    const res = await fetch('/api/layout/get?key=' + encodeURIComponent(READ_KEY));
+    const res = await fetch('/api/layout/get?key=' + encodeURIComponent(READ_KEY) + '&device=' + (window.innerWidth < 900 ? 'mobile' : 'desktop'));
     const json = await res.json();
     if (json.status === 'ok' && json.layout) {
       gridStackInstance.load(JSON.parse(json.layout));
@@ -2158,7 +2158,7 @@ async function loadHomeLayout(){
 
 async function saveLayoutAsDefault(){
   if (!WRITE_KEY) return;
-  const res = await fetch('/api/layout/set-default?key=' + encodeURIComponent(WRITE_KEY));
+  const res = await fetch('/api/layout/set-default?key=' + encodeURIComponent(WRITE_KEY) + '&device=' + (window.innerWidth < 900 ? 'mobile' : 'desktop'));
   const json = await res.json();
   if (json.status === 'ok') alert('Huidige indeling opgeslagen als standaard.');
   else alert('Mislukt: ' + (json.message || 'onbekende fout'));
@@ -2166,7 +2166,7 @@ async function saveLayoutAsDefault(){
 
 async function resetLayoutToDefault(){
   if (!WRITE_KEY || !gridStackInstance) return;
-  const res = await fetch('/api/layout/reset?key=' + encodeURIComponent(WRITE_KEY));
+  const res = await fetch('/api/layout/reset?key=' + encodeURIComponent(WRITE_KEY) + '&device=' + (window.innerWidth < 900 ? 'mobile' : 'desktop'));
   const json = await res.json();
   if (json.status === 'ok' && json.layout) {
     gridStackInstance.load(JSON.parse(json.layout));
