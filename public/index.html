@@ -197,20 +197,15 @@
       <div class="grid-stack-item-content">
       <div class="card" style="height:100%; overflow:hidden; display:flex; flex-direction:column; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:12px 14px; box-sizing:border-box;">
         <div style="display:flex; align-items:baseline; justify-content:space-between;">
-          <span id="iobPageLabel" style="font-size:12px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">IOB</span>
-          <span id="iobPageStat" style="font-size:13px; color:#8a8a86;">actief nu: <span id="iobNowVal" style="font-size:17px; font-weight:600; color:#7f77dd;">-</span></span>
+          <span style="font-size:12px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">IOB &amp; COB</span>
+          <span style="font-size:13px; color:#8a8a86;">IOB: <span id="iobNowVal" style="font-weight:600; color:#7f77dd;">-</span> · COB: <span id="cobNowVal" style="font-weight:600; color:#d85a30;">-</span></span>
         </div>
-        <div style="font-size:12px; color:#8a8a86; margin-top:2px;">COB nu: <span id="cobNowVal" style="font-weight:600; color:#d85a30;">-</span></div>
-        <div id="iobActivityViewport" style="flex:1; overflow:hidden; margin-top:2px;">
-          <div id="iobActivityTrack" style="display:flex; width:200%; height:100%; transition:transform 0.25s ease;">
-            <div style="width:50%; height:100%; flex-shrink:0; box-sizing:border-box; padding-right:4px;"><canvas id="iobChart"></canvas></div>
-            <div style="width:50%; height:100%; flex-shrink:0; box-sizing:border-box; padding-left:4px;"><canvas id="activityChart"></canvas></div>
-          </div>
+        <div style="display:flex; gap:10px; margin-top:4px;">
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkIob" checked onchange="renderCombinedChart()"> IOB</label>
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkAct" onchange="renderCombinedChart()"> Activiteit</label>
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkCob" checked onchange="renderCombinedChart()"> COB</label>
         </div>
-        <div style="display:flex; justify-content:center; gap:5px; margin-top:4px;">
-          <span class="iobPageDot" data-idx="0" onclick="setIobPage(0)" style="width:5px; height:5px; border-radius:50%; background:#7f77dd; cursor:pointer;"></span>
-          <span class="iobPageDot" data-idx="1" onclick="setIobPage(1)" style="width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.2); cursor:pointer;"></span>
-        </div>
+        <div style="flex:1; overflow:hidden; margin-top:2px;"><canvas id="combinedChart"></canvas></div>
       </div>
       </div>
       </div>
@@ -693,7 +688,7 @@ async function loadData(){
     render();
     renderLinkPickers();
     if (document.getElementById('viewHoogtepunten').style.display !== 'none') renderHighlights();
-    if (document.getElementById('homeTilesSection').style.display !== 'none') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrText(); }
+    if (document.getElementById('homeTilesSection').style.display !== 'none') { renderHomeTiles(); renderHomeTrendChart(); renderCombinedChart(); renderIcrText(); }
   } catch (err) {
     errBox.textContent = 'Kon data niet ophalen: ' + err.message;
   }
@@ -1308,108 +1303,50 @@ function hourAxisTicks(axis){
   axis.ticks = axis.ticks.filter(t => t.value % IOB_POINTS_PER_HOUR === 0);
 }
 
-function renderIobChart(){
-  const canvas = document.getElementById('iobChart');
+let combinedChartInstance = null;
+
+function renderCombinedChart(){
+  const canvas = document.getElementById('combinedChart');
   if (!canvas) return;
   const now = Date.now();
   const boluses = (DATA.foodLogRaw || []).filter(r => r.type === 'bolus' && r.amount != null);
-
-  const stepMin = IOB_STEP_MIN;
-  const points = [];
-  for (let offset = -IOB_WINDOW_MIN; offset <= IOB_WINDOW_MIN; offset += stepMin) {
-    const ts = now + offset * 60000;
-    points.push({ offset, ts, val: totalIobAt(ts, boluses) });
-  }
-  const centerIdx = points.findIndex(p => p.offset === 0);
-  const nowVal = points[centerIdx] ? points[centerIdx].val : 0;
-  document.getElementById('iobNowVal').textContent = nowVal.toFixed(1) + 'E';
-
   const carbEntries = (DATA.foodLogRaw || []).filter(r => r.type === 'khd' && r.amount != null && r.absorptionScore != null);
-  const cobNow = totalCobAt(now, carbEntries);
-  const cobEl = document.getElementById('cobNowVal');
-  if (cobEl) cobEl.textContent = cobNow.toFixed(0) + 'g';
-
-  const labels = points.map(p => fmtTime(p.ts));
-  const values = points.map(p => p.val);
-  const bolusMarkerObj = bolusMarkerData(now, boluses, stepMin, points.length, IOB_WINDOW_MIN);
-
-  const nowLinePlugin = {
-    id: 'iobNowLine',
-    beforeDatasetsDraw(chart){
-      const { ctx, scales } = chart;
-      if (!scales.x) return;
-      const x = scales.x.getPixelForValue(centerIdx);
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-      ctx.lineWidth = 1.25;
-      ctx.setLineDash([3,3]);
-      ctx.beginPath();
-      ctx.moveTo(x, chart.chartArea.top);
-      ctx.lineTo(x, chart.chartArea.bottom);
-      ctx.stroke();
-      ctx.restore();
-    }
-  };
-
-  if (iobChartInstance) iobChartInstance.destroy();
-  iobChartInstance = new Chart(canvas, {
-    type: 'line',
-    plugins: [nowLinePlugin, hourTopLabelsPlugin(centerIdx)],
-    data: {
-      labels,
-      datasets: [
-        { data: values, borderColor:'#7f77dd', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 },
-        { data: bolusMarkerObj.data, descs: bolusMarkerObj.descs, showLine:false, pointStyle:'triangle', pointRadius:6, pointBackgroundColor:'#7f77dd', pointBorderColor:'#fff', pointBorderWidth:1 }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      layout: { padding: { top: 14 } },
-      interaction: { mode:'index', intersect:false },
-      plugins: {
-        legend:{display:false},
-        datalabels:{display:false},
-        tooltip: {
-          enabled: true,
-          displayColors: false,
-          backgroundColor: 'rgba(20,20,22,0.95)',
-          titleColor: '#e4e4e0',
-          bodyColor: '#7f77dd',
-          callbacks: {
-            title: (items) => items[0] ? items[0].label : '',
-            label: (item) => item.dataset.descs ? 'Bolus: ' + item.dataset.descs[item.dataIndex] : item.formattedValue + 'E IOB'
-          }
-        }
-      },
-      scales: {
-        x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0, display: window.innerWidth >= 900 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
-        y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
-      }
-    }
-  });
-
-  renderActivityChart(boluses);
-}
-
-function renderActivityChart(boluses){
-  const canvas = document.getElementById('activityChart');
-  if (!canvas) return;
-  const now = Date.now();
 
   const stepMin = IOB_STEP_MIN;
   const points = [];
   for (let offset = -IOB_WINDOW_MIN; offset <= IOB_WINDOW_MIN; offset += stepMin) {
     const ts = now + offset * 60000;
-    points.push({ offset, ts, val: totalActivityAt(ts, boluses) });
+    points.push({
+      offset, ts,
+      iob: totalIobAt(ts, boluses),
+      act: totalActivityAt(ts, boluses),
+      cob: totalCobAt(ts, carbEntries)
+    });
   }
   const centerIdx = points.findIndex(p => p.offset === 0);
+  const iobVals = points.map(p => p.iob);
+  const actVals = points.map(p => p.act);
+  const cobVals = points.map(p => p.cob);
+
+  document.getElementById('iobNowVal').textContent = (iobVals[centerIdx] || 0).toFixed(1) + 'E';
+  document.getElementById('cobNowVal').textContent = (cobVals[centerIdx] || 0).toFixed(0) + 'g';
+
+  const norm = arr => { const m = Math.max(...arr, 0.0001); return arr.map(v => v / m * 100); };
   const labels = points.map(p => fmtTime(p.ts));
-  const values = points.map(p => p.val);
   const bolusMarkerObj = bolusMarkerData(now, boluses, stepMin, points.length, IOB_WINDOW_MIN);
 
+  const showIob = document.getElementById('combChkIob').checked;
+  const showAct = document.getElementById('combChkAct').checked;
+  const showCob = document.getElementById('combChkCob').checked;
+
+  const datasets = [];
+  if (showIob) datasets.push({ label:'IOB', data: norm(iobVals), borderColor:'#7f77dd', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
+  if (showAct) datasets.push({ label:'Activiteit', data: norm(actVals), borderColor:'#a89af0', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
+  if (showCob) datasets.push({ label:'COB', data: norm(cobVals), borderColor:'#d85a30', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
+  datasets.push({ data: bolusMarkerObj.data, descs: bolusMarkerObj.descs, showLine:false, pointStyle:'triangle', pointRadius:6, pointBackgroundColor:'#7f77dd', pointBorderColor:'#fff', pointBorderWidth:1 });
+
   const nowLinePlugin = {
-    id: 'activityNowLine',
+    id: 'combinedNowLine',
     beforeDatasetsDraw(chart){
       const { ctx, scales } = chart;
       if (!scales.x) return;
@@ -1426,17 +1363,11 @@ function renderActivityChart(boluses){
     }
   };
 
-  if (activityChartInstance) activityChartInstance.destroy();
-  activityChartInstance = new Chart(canvas, {
+  if (combinedChartInstance) combinedChartInstance.destroy();
+  combinedChartInstance = new Chart(canvas, {
     type: 'line',
     plugins: [nowLinePlugin, hourTopLabelsPlugin(centerIdx)],
-    data: {
-      labels,
-      datasets: [
-        { data: values, borderColor:'#a89af0', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 },
-        { data: bolusMarkerObj.data, descs: bolusMarkerObj.descs, showLine:false, pointStyle:'triangle', pointRadius:6, pointBackgroundColor:'#7f77dd', pointBorderColor:'#fff', pointBorderWidth:1 }
-      ]
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -1447,19 +1378,18 @@ function renderActivityChart(boluses){
         datalabels:{display:false},
         tooltip: {
           enabled: true,
-          displayColors: false,
+          displayColors: true,
           backgroundColor: 'rgba(20,20,22,0.95)',
           titleColor: '#e4e4e0',
-          bodyColor: '#a89af0',
           callbacks: {
             title: (items) => items[0] ? items[0].label : '',
-            label: (item) => item.dataset.descs ? 'Bolus: ' + item.dataset.descs[item.dataIndex] : item.formattedValue + ' E/min actief'
+            label: (item) => item.dataset.descs ? 'Bolus: ' + item.dataset.descs[item.dataIndex] : (item.dataset.label ? item.dataset.label + ': ' + item.formattedValue + '%' : null)
           }
         }
       },
       scales: {
         x: { display:true, afterBuildTicks: hourAxisTicks, ticks:{ color:'#75746f', font:{size:12}, autoSkip:false, maxRotation:0, display: window.innerWidth >= 900 }, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} },
-        y: { display:true, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false}, beginAtZero:true }
+        y: { display:true, min:0, max:100, ticks:{display:false}, grid:{display:true, color:'rgba(255,255,255,0.05)', drawTicks:false} }
       }
     }
   });
@@ -1656,7 +1586,7 @@ function showTab(tab){
 
   if (tab === 'hoogtepunten') renderHighlights();
   if (tab === 'ruwedata') renderRuweData();
-  if (tab === 'home') { renderHomeTiles(); renderHomeTrendChart(); renderIobChart(); renderIcrText(); }
+  if (tab === 'home') { renderHomeTiles(); renderHomeTrendChart(); renderCombinedChart(); renderIcrText(); }
 }
 
 const ICON_EDIT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
@@ -2138,7 +2068,7 @@ let layoutEditMode = false;
 let layoutSaveTimer = null;
 
 function resizeHomeCharts(){
-  [iobChartInstance, activityChartInstance, homeTrendChartInstance].forEach(c => { if (c) c.resize(); });
+  [combinedChartInstance, homeTrendChartInstance].forEach(c => { if (c) c.resize(); });
 }
 
 function initHomeGrid(){
