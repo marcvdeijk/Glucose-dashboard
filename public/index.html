@@ -1649,6 +1649,19 @@ function bgPillHtml(v){
 }
 
 const ABSORPTION_EMOJI = ['\u26a1','\ud83c\udfc3','\ud83d\udeb6','\ud83c\udf7d\ufe0f','\ud83c\udf55','\ud83c\udf56'];
+const ABSORPTION_TITLES = ['Bliksemsnel (~45 min)','Snel (~1.5-2u)','Normaal (~2.5-3u)','Standaard maaltijd (~3.5-4u)','Vetrijk/traag (~5-6u)','Zeer traag (~7-8u)'];
+let rdmAbsorptionScore = null;
+function selectRdmAbsorptionScore(score, btn){
+  const row = document.getElementById('rdmAbsorptionRow');
+  if (rdmAbsorptionScore === score) {
+    rdmAbsorptionScore = null;
+    row.querySelectorAll('.dayBtn').forEach(b => b.classList.remove('dayBtnActive'));
+    return;
+  }
+  rdmAbsorptionScore = score;
+  row.querySelectorAll('.dayBtn').forEach(b => b.classList.remove('dayBtnActive'));
+  btn.classList.add('dayBtnActive');
+}
 function absorptionPillHtml(score){
   if (score == null || score < 0 || score > 5) return '';
   return '<span class="rdBgPill" style="background:rgba(216,90,48,0.18); color:#f0a080;">' + ABSORPTION_EMOJI[score] + '</span>';
@@ -1712,6 +1725,7 @@ function openRdModal(id){
   const tsLocal = (row.ts||'').slice(0,16);
   const linkedIds = new Set(row.links.map(l => l.id));
   const candidates = ruweRows.filter(r => r.id !== id).sort((a,b) => new Date(b.ts) - new Date(a.ts)).slice(0, 20);
+  rdmAbsorptionScore = row.absorptionScore != null ? row.absorptionScore : null;
   const linksHtml = candidates.map(c =>
     '<label style="display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 0;">' +
       '<input type="checkbox" value="' + c.id + '"' + (linkedIds.has(c.id) ? ' checked' : '') + '> ' +
@@ -1749,6 +1763,12 @@ function openRdModal(id){
         '<input id="rdmAmount" type="number" value="' + (row.amount != null ? row.amount : '') + '" placeholder="Aantal" style="flex:1; ' + fieldStyle + '">' +
         '<input id="rdmTags" value="' + (row.tags||'').replace(/"/g,'&quot;') + '" placeholder="Tags" style="flex:2; ' + fieldStyle + '">' +
       '</div>' +
+      (row.type === 'khd' ?
+        '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Verwerking</div>' +
+        '<div class="pillRow" id="rdmAbsorptionRow" style="display:flex; gap:6px; flex-wrap:wrap;">' +
+          ABSORPTION_TITLES.map((t, i) => '<button type="button" class="dayBtn' + (row.absorptionScore === i ? ' dayBtnActive' : '') + '" data-score="' + i + '" title="' + t + '" onclick="selectRdmAbsorptionScore(' + i + ',this)">' + ABSORPTION_EMOJI[i] + '</button>').join('') +
+        '</div>'
+      : '') +
       '<textarea id="rdmContext" placeholder="Context" style="min-height:54px; ' + fieldStyle + '">' + (row.context||'') + '</textarea>' +
       '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Koppel aan</div>' +
       '<div id="rdmLinks" style="max-height:130px; overflow-y:auto; background:rgba(0,0,0,0.2); border:0.5px solid rgba(255,255,255,0.12); border-radius:8px; padding:6px 8px;">' + linksHtml + '</div>' +
@@ -1925,13 +1945,14 @@ async function saveRdModal(id){
   const type = document.getElementById('rdmType').value;
   const bolusTypeEl = document.getElementById('rdmBolusType');
   const bolusType = bolusTypeEl ? bolusTypeEl.value : '';
+  const absorptionParam = type === 'khd' ? '&absorptionScore=' + encodeURIComponent(rdmAbsorptionScore != null ? rdmAbsorptionScore : '') : '';
 
   try {
     const res = await fetch(API_UPDATE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id) +
       '&desc=' + encodeURIComponent(desc) + '&amount=' + encodeURIComponent(amount) +
       '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) +
       '&ts=' + encodeURIComponent(ts) + '&type=' + encodeURIComponent(type) +
-      '&bolusType=' + encodeURIComponent(bolusType));
+      '&bolusType=' + encodeURIComponent(bolusType) + absorptionParam);
     const json = await res.json();
     if (json.status !== 'ok') { alert('Mislukt: ' + (json.message || 'onbekende fout')); return; }
 
