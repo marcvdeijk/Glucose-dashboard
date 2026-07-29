@@ -200,6 +200,7 @@
           <span id="iobPageLabel" style="font-size:12px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">IOB</span>
           <span id="iobPageStat" style="font-size:13px; color:#8a8a86;">actief nu: <span id="iobNowVal" style="font-size:17px; font-weight:600; color:#7f77dd;">-</span></span>
         </div>
+        <div style="font-size:12px; color:#8a8a86; margin-top:2px;">COB nu: <span id="cobNowVal" style="font-weight:600; color:#d85a30;">-</span></div>
         <div id="iobActivityViewport" style="flex:1; overflow:hidden; margin-top:2px;">
           <div id="iobActivityTrack" style="display:flex; width:200%; height:100%; transition:transform 0.25s ease;">
             <div style="width:50%; height:100%; flex-shrink:0; box-sizing:border-box; padding-right:4px;"><canvas id="iobChart"></canvas></div>
@@ -1224,6 +1225,39 @@ function totalActivityAt(targetTime, boluses){
   return total;
 }
 
+// ---- COB: Hill/log-logistic absorptiemodel ----
+// tau = absorptie-midpoint (min), n = steilheid. Per bestaande absorption_score (0-5).
+// Waarden gebaseerd op literatuur (glycemic index / vetrijke-maaltijd onderzoek), afgestemd
+// op de bestaande 6 categorieen in de KHD-tab (Bliksemsnel t/m Zeer traag).
+const ABSORPTION_PARAMS = {
+  0: { tau: 20,  n: 5   }, // Bliksemsnel (~45 min)
+  1: { tau: 60,  n: 3.5 }, // Snel (~1.5-2u)
+  2: { tau: 105, n: 2.5 }, // Normaal (~2.5-3u)
+  3: { tau: 150, n: 2   }, // Standaard maaltijd (~3.5-4u)
+  4: { tau: 270, n: 1.2 }, // Vetrijk/traag (~5-6u)
+  5: { tau: 420, n: 0.8 }  // Zeer traag (~7-8u)
+};
+const COB_WINDOW_MIN = 600; // veiligheidsgrens, ruim boven score 5
+
+// Fractie koolhydraten die nog NIET is opgenomen (dus nog "on board") op tMin minuten na eten.
+function cobFraction(tMin, score){
+  const p = ABSORPTION_PARAMS[score];
+  if (!p || tMin <= 0) return 1;
+  if (tMin >= COB_WINDOW_MIN) return 0;
+  const ratio = Math.pow(tMin / p.tau, p.n);
+  return 1 / (1 + ratio);
+}
+
+function totalCobAt(targetTime, carbEntries){
+  let total = 0;
+  carbEntries.forEach(c => {
+    if (c.amount == null || c.absorptionScore == null) return;
+    const minsSince = (targetTime - new Date(c.ts).getTime()) / 60000;
+    if (minsSince >= 0 && minsSince < COB_WINDOW_MIN) total += c.amount * cobFraction(minsSince, c.absorptionScore);
+  });
+  return total;
+}
+
 let iobChartInstance = null;
 let activityChartInstance = null;
 
@@ -1289,6 +1323,11 @@ function renderIobChart(){
   const centerIdx = points.findIndex(p => p.offset === 0);
   const nowVal = points[centerIdx] ? points[centerIdx].val : 0;
   document.getElementById('iobNowVal').textContent = nowVal.toFixed(1) + 'E';
+
+  const carbEntries = (DATA.foodLogRaw || []).filter(r => r.type === 'khd' && r.amount != null && r.absorptionScore != null);
+  const cobNow = totalCobAt(now, carbEntries);
+  const cobEl = document.getElementById('cobNowVal');
+  if (cobEl) cobEl.textContent = cobNow.toFixed(0) + 'g';
 
   const labels = points.map(p => fmtTime(p.ts));
   const values = points.map(p => p.val);
