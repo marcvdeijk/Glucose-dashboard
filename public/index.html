@@ -601,7 +601,20 @@ function attachTagAutocomplete(inputId, colorClass){
   });
   input.addEventListener('keyup', render);
   input.addEventListener('click', render);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') e.preventDefault();
+    if (e.key === 'Tab' && dropdown.style.display === 'block') {
+      const first = dropdown.querySelector('.acItem');
+      if (first) {
+        e.preventDefault();
+        const token = findActiveAtTokenCE(input);
+        if (token) {
+          insertChip(token.node, token.start, token.end, first.dataset.tag, colorClass);
+          dropdown.style.display = 'none';
+        }
+      }
+    }
+  });
   input.addEventListener('blur', () => { setTimeout(() => { dropdown.style.display = 'none'; }, 150); });
 }
 
