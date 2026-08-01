@@ -603,7 +603,7 @@ function attachTagAutocomplete(inputId, colorClass){
   input.addEventListener('click', render);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') e.preventDefault();
-    if (e.key === 'Tab' && dropdown.style.display === 'block') {
+    if ((e.key === 'Tab' || e.key === 'Enter') && dropdown.style.display === 'block') {
       const first = dropdown.querySelector('.acItem');
       if (first) {
         e.preventDefault();
