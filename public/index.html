@@ -405,6 +405,13 @@
     <option value="bolus">Alleen bolus</option>
     <option value="beweging">Alleen beweging</option>
   </select>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+    <input id="rdTagFilter" list="rdTagList" placeholder="Filter op tag (bv. bagel)" style="flex:1; min-width:140px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:14px; outline:none;">
+    <datalist id="rdTagList"></datalist>
+    <input type="date" id="rdDateFrom" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:14px; outline:none;">
+    <input type="date" id="rdDateTo" style="background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px; font-size:14px; outline:none;">
+    <button onclick="clearRdFilters()" style="background:transparent; color:#8a8a86; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 12px; font-size:13px; cursor:pointer;">Wis filter</button>
+  </div>
   <div class="rd-desktop-only" style="margin-top:12px; background:rgba(28,28,30,0.5); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:0.5px solid rgba(255,255,255,0.10); border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,0.15); overflow:hidden;">
     <div style="overflow-x:auto;">
     <table style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">
@@ -564,12 +571,15 @@ function attachTagAutocomplete(inputId, colorClass){
     const token = findActiveAtTokenCE(input);
     if (!token) { dropdown.style.display = 'none'; return; }
     const all = DATA.tagFrequency || [];
-    const matches = all.filter(t => t.tag.startsWith(token.partial)).slice(0, 6);
+    let matches = all.filter(t => t.tag.startsWith(token.partial)).slice(0, 6);
+    const isNew = !matches.length && token.partial.length > 0;
+    if (isNew) matches = [{ tag: token.partial, isNew: true }];
     if (!matches.length) { dropdown.style.display = 'none'; return; }
     const dotColor = TAG_COLOR_HEX[colorClass] || '#e4e4e0';
     dropdown.innerHTML = matches.map(t =>
       '<div class="acItem" data-tag="' + t.tag + '" style="display:flex; align-items:center; padding:8px 10px; font-size:13px; cursor:pointer;">' +
-      '<span style="display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:8px; background:' + dotColor + ';"></span>' + t.tag +
+      '<span style="display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:8px; background:' + dotColor + ';"></span>' +
+      (t.isNew ? 'Nieuwe tag: @' + t.tag : t.tag) +
       '</div>'
     ).join('');
     dropdown.style.display = 'block';
@@ -1583,6 +1593,10 @@ let ruweRows = [];
 
 function renderRuweData(){
   const filter = document.getElementById('rdFilter').value;
+  const tagFilter = (document.getElementById('rdTagFilter').value || '').trim().toLowerCase();
+  const dateFrom = document.getElementById('rdDateFrom').value;
+  const dateTo = document.getElementById('rdDateTo').value;
+  document.getElementById('rdTagList').innerHTML = (DATA.tagFrequency || []).map(t => '<option value="' + t.tag + '">').join('');
   const body = document.getElementById('rdBody');
   body.innerHTML = '';
 
@@ -1593,6 +1607,9 @@ function renderRuweData(){
 
   let rows = ruweRows;
   if (filter !== 'alles') rows = rows.filter(r => r.type === filter);
+  if (tagFilter) rows = rows.filter(r => (r.tags || '').toLowerCase().split(/[,;]/).map(t => t.trim()).some(t => t.includes(tagFilter)));
+  if (dateFrom) rows = rows.filter(r => new Date(r.ts) >= new Date(dateFrom));
+  if (dateTo) rows = rows.filter(r => new Date(r.ts) <= new Date(dateTo + 'T23:59:59'));
   rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
 
   if (!rows.length){
@@ -1988,6 +2005,15 @@ async function deleteFromModal(id){
 }
 
 document.getElementById('rdFilter').addEventListener('change', renderRuweData);
+document.getElementById('rdTagFilter').addEventListener('input', renderRuweData);
+document.getElementById('rdDateFrom').addEventListener('change', renderRuweData);
+document.getElementById('rdDateTo').addEventListener('change', renderRuweData);
+function clearRdFilters(){
+  document.getElementById('rdTagFilter').value = '';
+  document.getElementById('rdDateFrom').value = '';
+  document.getElementById('rdDateTo').value = '';
+  renderRuweData();
+}
 
 function findNearestMealBefore(ts){
   const candidates = DATA.meals.filter(m => new Date(m.ts) <= new Date(ts) && String(m.desc).indexOf('[PLAN]') !== 0);
