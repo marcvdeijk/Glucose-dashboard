@@ -48,7 +48,7 @@
   .rdTime { font-size:10.5px; font-weight:500; color:#6e6d68; white-space:nowrap; }
   .rdChips { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
   .rdChip { font-size:10px; font-weight:500; padding:2px 7px; border-radius:999px; }
-  .rdChip.tag { background:rgba(93,202,165,0.14); color:#94ddc4; }
+  .rdChip.tag { background:rgba(93,202,165,0.16); color:#94ddc4; border:0.5px solid rgba(93,202,165,0.4); }
   .rdChip.link { background:rgba(127,119,221,0.14); color:#bcb4f0; }
   .chipInput { min-height:22px; display:flex; flex-wrap:wrap; align-items:center; gap:3px; cursor:text; }
   .chipInput:empty:before { content:attr(data-placeholder); color:#75746f; }
@@ -144,7 +144,6 @@
 
 <div style="display:flex; gap:8px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
   <button id="tabHome" onclick="showTab('home')" title="Home" style="width:40px; height:40px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69s-5.66 6.28-5.66 10.15a5.66 5.66 0 1 0 11.32 0C17.66 8.97 12 2.69 12 2.69z"></path></svg></button>
-  <button id="tabGrafiek" onclick="showTab('log')" title="Log" style="width:40px; height:40px; background:transparent; color:#b7b7b2; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
   <button id="tabHoogtepunten" onclick="showTab('hoogtepunten')" title="Analyse" style="width:40px; height:40px; background:transparent; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"></circle><line x1="21" y1="21" x2="15.5" y2="15.5"></line><line x1="7" y1="11" x2="7" y2="8"></line><line x1="10" y1="11" x2="10" y2="6"></line><line x1="13" y1="11" x2="13" y2="9"></line></svg></button>
   <button id="tabRuweData" onclick="showTab('ruwedata')" title="Logboek" style="width:40px; height:40px; background:transparent; color:#b7b7b2; border:1px solid #45454a; border-radius:6px; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 8 12 12 14 17 8 21 4"></polyline><line x1="4" y1="20" x2="4" y2="14"></line><line x1="9" y1="20" x2="9" y2="10"></line><line x1="14" y1="20" x2="14" y2="16"></line><line x1="19" y1="20" x2="19" y2="12"></line></svg></button>
   <a id="exportLink" href="#" target="_blank" title="Data-export voor AI" style="margin-left:auto; width:40px; height:40px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:0; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; text-decoration:none;">&#128196;</a>
@@ -429,25 +428,19 @@
     <div style="overflow-x:auto;">
     <table style="width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed;">
       <colgroup>
-        <col style="width:7%">
-        <col style="width:20%">
-        <col style="width:6%">
-        <col style="width:10%">
-        <col style="width:26%">
-        <col style="width:11%">
-        <col style="width:14%">
+        <col style="width:9%">
+        <col style="width:16%">
+        <col style="width:1fr">
+        <col style="width:16%">
         <col style="width:6%">
       </colgroup>
       <thead>
         <tr style="text-align:left; border-bottom:0.5px solid rgba(255,255,255,0.10); color:#8a8a86;">
-          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Tijd</th>
-          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Beschrijving</th>
-          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Aantal</th>
-          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Type</th>
-          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Context</th>
-          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Tags</th>
-          <th style="padding:10px 12px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Gekoppeld</th>
-          <th style="padding:10px 12px;"></th>
+          <th style="padding:9px 14px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">Tijd</th>
+          <th style="padding:9px 14px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">Type</th>
+          <th style="padding:9px 14px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">Entry</th>
+          <th style="padding:9px 14px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">Tags</th>
+          <th style="padding:9px 14px;"></th>
         </tr>
       </thead>
       <tbody id="rdBody"></tbody>
@@ -1593,15 +1586,13 @@ let currentTab = 'home';
 
 function showTab(tab){
   currentTab = tab;
-  const showShared = (tab === 'home' || tab === 'log');
-  document.getElementById('viewGrafiek').style.display = showShared ? 'block' : 'none';
+  document.getElementById('viewGrafiek').style.display = (tab === 'home') ? 'block' : 'none';
   document.getElementById('viewHoogtepunten').style.display = tab === 'hoogtepunten' ? 'block' : 'none';
   document.getElementById('viewRuweData').style.display = tab === 'ruwedata' ? 'block' : 'none';
 
   document.getElementById('homeTilesSection').style.display = tab === 'home' ? 'block' : 'none';
-  document.getElementById('logPanelsSection').style.display = tab === 'log' ? 'block' : 'none';
 
-  const tabs = { tabHome: 'home', tabGrafiek: 'log', tabHoogtepunten: 'hoogtepunten', tabRuweData: 'ruwedata' };
+  const tabs = { tabHome: 'home', tabHoogtepunten: 'hoogtepunten', tabRuweData: 'ruwedata' };
   Object.entries(tabs).forEach(([id, key]) => {
     document.getElementById(id).style.background = tab === key ? 'rgba(255,255,255,0.06)' : 'transparent';
     document.getElementById(id).style.color = tab === key ? '#e4e4e0' : '#b7b7b2';
@@ -1643,7 +1634,7 @@ function closeLogModal(){
   panel.style.overflowY = '';
   panel.style.zIndex = '';
   document.body.style.overflow = '';
-  if (currentTab !== 'log') panel.style.display = 'none';
+  panel.style.display = 'none';
 }
 
 const ICON_EDIT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
@@ -1706,34 +1697,34 @@ function renderRuweData(){
     return;
   }
 
-  rows.forEach(r => {
+  rows.forEach((r, idx) => {
     const tr = document.createElement('tr');
     tr.id = 'rdRow-' + r.id;
     tr.className = 'rdRowClickable';
-    tr.style.borderBottom = '0.5px solid rgba(255,255,255,0.07)';
+    tr.style.borderBottom = '0.5px solid rgba(255,255,255,0.06)';
+    tr.style.background = (idx % 2 === 1) ? 'rgba(255,255,255,0.015)' : 'transparent';
     tr.onclick = () => openRdModal(r.id);
     const accent = typeAccent(r.type);
     const typeLabel =
-      '<div style="display:flex; align-items:center; gap:7px;">' +
-        '<div style="width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:' + accent.bg + '; flex-shrink:0;">' + accent.icon + '</div>' +
-        '<span>' + r.type + (r.bolusType ? ' (' + r.bolusType + ')' : '') + '</span>' +
+      '<div style="display:flex; align-items:center; gap:6px;">' +
+        '<span style="width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:' + accent.bg + '; flex-shrink:0;">' + accent.icon + '</span>' +
+        '<span style="font-size:12px; color:#b7b7b2;">' + r.type.charAt(0).toUpperCase() + r.type.slice(1) + '</span>' +
       '</div>';
-    const contextLabel = (r.type === 'bolus' && r.bgAtEntry != null)
-      ? (bgPillHtml(r.bgAtEntry) + (r.context ? ' <span style="color:#8a8a86;">' + r.context + '</span>' : ''))
-      : (r.type === 'khd' && r.absorptionScore != null)
-        ? (absorptionPillHtml(r.absorptionScore) + (r.context ? ' <span style="color:#8a8a86;">' + r.context + '</span>' : ''))
-        : (r.context ? '<span style="color:#8a8a86;">' + r.context + '</span>' : '');
+    const title = rdPrimaryLine(r);
+    const metaParts = [];
+    if (r.type === 'bolus' && r.bolusType) metaParts.push('<span style="color:#75746f;">' + r.bolusType + '</span>');
+    if (r.type === 'bolus' && r.bgAtEntry != null) metaParts.push(bgPillHtml(r.bgAtEntry));
+    if (r.type === 'khd' && r.absorptionScore != null) metaParts.push(absorptionPillHtml(r.absorptionScore));
+    if (r.context) metaParts.push('<span style="color:#75746f;">' + r.context + '</span>');
+    if (r.links.length) r.links.forEach(l => metaParts.push('<span style="color:#75746f;">&#8596; ' + (l.desc||l.type) + '</span>'));
+    const metaLine = metaParts.length ? '<div style="display:flex; align-items:center; gap:6px; margin-top:3px; font-size:11px; flex-wrap:wrap;">' + metaParts.join('') + '</div>' : '';
     const tagChips = r.tags ? r.tags.split(/[,;]/).map(t => t.trim()).filter(Boolean).map(t => '<span class="rdChip tag">' + t + '</span>').join('') : '';
-    const linkChips = r.links.length ? r.links.map(l => '<span class="rdChip link">&#8596; ' + (l.desc||l.type) + '</span>').join('') : '<span style="color:#75746f;">–</span>';
     tr.innerHTML =
-      '<td data-label="Tijd" class="rd-time" style="padding:9px 12px; white-space:nowrap; color:#b7b7b2; font-size:12px;">' + fmtDayTime(r.ts) + '</td>' +
-      '<td data-label="Beschrijving" class="rd-desc" style="padding:9px 12px; word-wrap:break-word; font-weight:500;">' + (r.desc||'') + '</td>' +
-      '<td data-label="Aantal" class="rd-amount" style="padding:9px 12px;">' + (r.amount !== '' && r.amount != null ? r.amount : '') + '</td>' +
-      '<td data-label="Type" class="rd-type" style="padding:9px 12px;">' + typeLabel + '</td>' +
-      '<td data-label="Context" class="rd-context" style="padding:9px 12px; word-wrap:break-word; font-size:12px;">' + contextLabel + '</td>' +
-      '<td data-label="Tags" class="rd-tags" style="padding:9px 12px; word-wrap:break-word;"><div class="rdChips" style="margin-top:0;">' + tagChips + '</div></td>' +
-      '<td data-label="Gekoppeld" class="rd-links" style="padding:9px 12px; word-wrap:break-word;"><div class="rdChips" style="margin-top:0;">' + linkChips + '</div></td>' +
-      '<td style="padding:9px 12px; color:#75746f;">' + ICON_CHEVRON + '</td>';
+      '<td data-label="Tijd" class="rd-time" style="padding:11px 14px; white-space:nowrap; color:#8a8a86; font-size:12px; vertical-align:middle;">' + fmtDayTime(r.ts) + '</td>' +
+      '<td data-label="Type" class="rd-type" style="padding:11px 14px; vertical-align:middle;">' + typeLabel + '</td>' +
+      '<td data-label="Entry" class="rd-desc" style="padding:11px 14px; word-wrap:break-word; vertical-align:middle;"><div style="font-size:14px; font-weight:600; color:#e4e4e0;">' + title + '</div>' + metaLine + '</td>' +
+      '<td data-label="Tags" class="rd-tags" style="padding:11px 14px; word-wrap:break-word; vertical-align:middle;"><div class="rdChips" style="margin-top:0;">' + tagChips + '</div></td>' +
+      '<td style="padding:11px 14px; color:#5f5e5a; vertical-align:middle;">' + ICON_CHEVRON + '</td>';
     body.appendChild(tr);
   });
   renderRuweDataCards(rows);
