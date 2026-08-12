@@ -199,11 +199,13 @@
           <span style="font-size:12px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px;">IOB &amp; COB</span>
           <span style="font-size:13px; color:#8a8a86;">IOB: <span id="iobNowVal" style="font-weight:600; color:#7f77dd;">-</span> · COB: <span id="cobNowVal" style="font-weight:600; color:#d85a30;">-</span></span>
         </div>
-        <div style="display:flex; gap:10px; margin-top:4px;">
-          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkIob" checked onchange="renderCombinedChart()"> IOB</label>
-          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkAct" onchange="renderCombinedChart()"> Activiteit</label>
-          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkCob" checked onchange="renderCombinedChart()"> COB</label>
+        <div style="display:flex; gap:10px; margin-top:4px; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkIob" onchange="renderCombinedChart()"> IOB</label>
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkCob" onchange="renderCombinedChart()"> COB</label>
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkAct" checked onchange="renderCombinedChart()"> Insuline-activiteit</label>
+          <label style="display:flex; align-items:center; gap:4px; font-size:11px; color:#b7b7b2; cursor:pointer;"><input type="checkbox" id="combChkKhdAbs" checked onchange="renderCombinedChart()"> KHD-absorptie</label>
         </div>
+        <div id="combWindowToggle" style="display:flex; gap:4px; margin-top:6px;"></div>
         <div style="flex:1; overflow:hidden; margin-top:2px;"><canvas id="combinedChart"></canvas></div>
       </div>
       </div>
@@ -1284,6 +1286,23 @@ function totalCobAt(targetTime, carbEntries){
   return total;
 }
 
+// KHD-absorptie = hoe snel COB op dit moment daalt (numerieke afgeleide, zelfde onderliggende curve)
+function khdAbsorptionFraction(tMin, score){
+  if (tMin < 0 || tMin > COB_WINDOW_MIN) return 0;
+  const d = 1; // 1 minuut-stap voor de afgeleide
+  return Math.max(0, (cobFraction(Math.max(0, tMin - d/2), score) - cobFraction(Math.min(COB_WINDOW_MIN, tMin + d/2), score)) / d);
+}
+
+function totalKhdAbsorptionAt(targetTime, carbEntries){
+  let total = 0;
+  carbEntries.forEach(c => {
+    if (c.amount == null || c.absorptionScore == null) return;
+    const minsSince = (targetTime - new Date(c.ts).getTime()) / 60000;
+    if (minsSince >= 0 && minsSince < COB_WINDOW_MIN) total += c.amount * khdAbsorptionFraction(minsSince, c.absorptionScore);
+  });
+  return total;
+}
+
 let iobChartInstance = null;
 let activityChartInstance = null;
 
@@ -1301,9 +1320,24 @@ function bolusMarkerData(now, boluses, stepMin, numPoints, windowMin){
   return { data, descs };
 }
 
-const IOB_WINDOW_MIN = 300; // ±5 uur
+let IOB_WINDOW_MIN = 360; // default ±6 uur, aanpasbaar via combWindowToggle
 const IOB_STEP_MIN = 6;
 const IOB_POINTS_PER_HOUR = 60 / IOB_STEP_MIN;
+
+function setCombinedWindow(minutes){
+  IOB_WINDOW_MIN = minutes;
+  renderCombinedChart();
+}
+
+function renderCombinedWindowToggle(){
+  const el = document.getElementById('combWindowToggle');
+  if (!el) return;
+  const options = [[180,'±3u'],[360,'±6u'],[540,'±9u']];
+  el.innerHTML = options.map(([min, label]) =>
+    '<button type="button" onclick="setCombinedWindow(' + min + ')" style="font-size:10px; padding:2px 8px; border-radius:6px; border:0.5px solid rgba(255,255,255,0.14); cursor:pointer; background:' +
+    (IOB_WINDOW_MIN === min ? 'rgba(127,119,221,0.35); color:#e4e4e0;' : 'transparent; color:#8a8a86;') + '">' + label + '</button>'
+  ).join('');
+}
 
 function hourTopLabelsPlugin(centerIdx){
   return {
@@ -1351,13 +1385,15 @@ function renderCombinedChart(){
       offset, ts,
       iob: totalIobAt(ts, boluses),
       act: totalActivityAt(ts, boluses),
-      cob: totalCobAt(ts, carbEntries)
+      cob: totalCobAt(ts, carbEntries),
+      khdAbs: totalKhdAbsorptionAt(ts, carbEntries)
     });
   }
   const centerIdx = points.findIndex(p => p.offset === 0);
   const iobVals = points.map(p => p.iob);
   const actVals = points.map(p => p.act);
   const cobVals = points.map(p => p.cob);
+  const khdAbsVals = points.map(p => p.khdAbs);
 
   document.getElementById('iobNowVal').textContent = (iobVals[centerIdx] || 0).toFixed(1) + 'E';
   document.getElementById('cobNowVal').textContent = (cobVals[centerIdx] || 0).toFixed(0) + 'g';
@@ -1367,14 +1403,18 @@ function renderCombinedChart(){
   const bolusMarkerObj = bolusMarkerData(now, boluses, stepMin, points.length, IOB_WINDOW_MIN);
 
   const showIob = document.getElementById('combChkIob').checked;
-  const showAct = document.getElementById('combChkAct').checked;
   const showCob = document.getElementById('combChkCob').checked;
+  const showAct = document.getElementById('combChkAct').checked;
+  const showKhdAbs = document.getElementById('combChkKhdAbs').checked;
 
   const datasets = [];
   if (showIob) datasets.push({ label:'IOB', data: norm(iobVals), borderColor:'#7f77dd', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
-  if (showAct) datasets.push({ label:'Activiteit', data: norm(actVals), borderColor:'#a89af0', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
   if (showCob) datasets.push({ label:'COB', data: norm(cobVals), borderColor:'#d85a30', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
+  if (showAct) datasets.push({ label:'Insuline-activiteit', data: norm(actVals), borderColor:'#a89af0', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
+  if (showKhdAbs) datasets.push({ label:'KHD-absorptie', data: norm(khdAbsVals), borderColor:'#f0a85a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
   datasets.push({ data: bolusMarkerObj.data, descs: bolusMarkerObj.descs, showLine:false, pointStyle:'triangle', pointRadius:6, pointBackgroundColor:'#7f77dd', pointBorderColor:'#fff', pointBorderWidth:1 });
+
+  renderCombinedWindowToggle();
 
   const nowLinePlugin = {
     id: 'combinedNowLine',
