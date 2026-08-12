@@ -490,6 +490,17 @@ const MCP_TOOLS = [
       },
       required: ['id']
     }
+  },
+  {
+    name: 'delete_entry',
+    description: 'Verwijdert een bestaande entry definitief (op id). Toon de gebruiker ALTIJD eerst een samenvatting van de entry (tijd, type, waarden) en wacht op expliciet akkoord voordat je deze tool aanroept - dit kan niet ongedaan gemaakt worden.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number', description: 'Id van de te verwijderen entry (uit get_glucose_data / foodLogRaw).' }
+      },
+      required: ['id']
+    }
   }
 ];
 
@@ -582,6 +593,18 @@ async function handleMcp(request, env) {
         return mcpResult(id, { content: [{ type: 'text', text: JSON.stringify(resultJson) }] });
       } catch (err) {
         return mcpResult(id, { content: [{ type: 'text', text: 'Fout bij bijwerken: ' + String(err) }], isError: true });
+      }
+    }
+
+    if (toolName === 'delete_entry') {
+      try {
+        const usp = new URLSearchParams();
+        Object.entries(args).forEach(([k, v]) => { if (v !== null && v !== undefined && v !== '') usp.set(k, String(v)); });
+        const result = await handleDelete(env, usp);
+        const resultJson = await result.json();
+        return mcpResult(id, { content: [{ type: 'text', text: JSON.stringify(resultJson) }] });
+      } catch (err) {
+        return mcpResult(id, { content: [{ type: 'text', text: 'Fout bij verwijderen: ' + String(err) }], isError: true });
       }
     }
 
