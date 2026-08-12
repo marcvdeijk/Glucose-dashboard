@@ -343,6 +343,12 @@
               <button type="button" class="dayBtn" data-score="5" title="Zeer traag (~7-8u)" onclick="selectAbsorptionScore(5,this)">&#127830;</button>
             </div>
           </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;">
+            <span style="font-size:11px; color:#8a8a86;">Macro's (optioneel):</span>
+            <input id="qlFat" type="number" step="0.1" placeholder="vet (g)" style="width:80px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:8px; padding:6px 8px; font-size:13px;">
+            <input id="qlProtein" type="number" step="0.1" placeholder="eiwit (g)" style="width:80px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:8px; padding:6px 8px; font-size:13px;">
+            <input id="qlCalories" type="number" step="1" placeholder="kcal (optioneel)" style="width:110px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:8px; padding:6px 8px; font-size:13px;">
+          </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
             <input id="qlContext" type="text" placeholder="Context (optioneel)" style="flex:1; min-width:140px; background:rgba(255,255,255,0.06); color:#e4e4e0; border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; padding:8px 10px;">
           </div>
@@ -1069,6 +1075,9 @@ async function quickLog(){
   const { clean: descRaw, tags: extractedTags } = getChipInputContent('qlDesc');
   const carbs = document.getElementById('qlCarbs').value.trim();
   const context = document.getElementById('qlContext').value.trim();
+  const fat = document.getElementById('qlFat').value.trim();
+  const protein = document.getElementById('qlProtein').value.trim();
+  const calories = document.getElementById('qlCalories').value.trim();
   const ts = buildTs('ql', 'qlTimeOnly');
   const status = document.getElementById('qlStatus');
   if (!descRaw && !extractedTags.length){ status.textContent = 'Vul in wat je hebt gegeten.'; return; }
@@ -1077,12 +1086,16 @@ async function quickLog(){
   const tags = extractedTags.join(',');
 
   const absorptionParam = qlAbsorptionScore != null ? '&absorptionScore=' + encodeURIComponent(qlAbsorptionScore) : '';
-  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) + '&type=khd' + absorptionParam + (ts ? '&ts=' + encodeURIComponent(ts) : '');
+  const macroParams = (fat ? '&fat=' + encodeURIComponent(fat) : '') + (protein ? '&protein=' + encodeURIComponent(protein) : '') + (calories ? '&calories=' + encodeURIComponent(calories) : '');
+  const url = API_LOG + '?key=' + encodeURIComponent(WRITE_KEY) + '&desc=' + encodeURIComponent(desc) + '&carbs=' + encodeURIComponent(carbs) + '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) + '&type=khd' + absorptionParam + macroParams + (ts ? '&ts=' + encodeURIComponent(ts) : '');
   const result = await sendLog(url, status);
   await applyPickedLinks('ql', result && result.id);
   document.getElementById('qlDesc').innerHTML = '';
   document.getElementById('qlCarbs').value = '';
   document.getElementById('qlContext').value = '';
+  document.getElementById('qlFat').value = '';
+  document.getElementById('qlProtein').value = '';
+  document.getElementById('qlCalories').value = '';
   qlAbsorptionScore = null;
   document.getElementById('qlAbsorptionRow').querySelectorAll('.dayBtn').forEach(b => b.classList.remove('dayBtnActive'));
 }
@@ -1267,38 +1280,63 @@ const ABSORPTION_PARAMS = {
 };
 const COB_WINDOW_MIN = 600; // veiligheidsgrens, ruim boven score 5
 
+// ---- FPU (Fat-Protein Units, Warsaw-methode) ----
+// FPU = (vet_g * 9 + eiwit_g * 4) / 100. Baseline bij FPU=0 geankerd op categorie "Snel"
+// (pure koolhydraten zijn niet instant). Voorlopige kalibratie op 1 datapunt (AH pizza
+// tonno, aug 2026) - bijstellen zodra een schone meting (zonder correctiebolus) beschikbaar is.
+const FPU_TAU0 = 60;
+const FPU_N0 = 3.5;
+const FPU_K_TAU = 49;
+const FPU_K_N = 0.53;
+
+// Bepaalt welke tau/n gebruikt wordt voor een KHD-entry, volgens vaste prioriteit:
+// 1) macro's (vet+eiwit) aanwezig -> FPU-formule (meest realistisch)
+// 2) geen macro's, wel verwerkingsschaal (0-5) -> vaste categorie
+// 3) geen van beide -> null (telt niet mee in COB/absorptiecurve)
+function getEffectiveTauN(entry){
+  if (entry.fatG != null && entry.proteinG != null) {
+    const fpu = (entry.fatG * 9 + entry.proteinG * 4) / 100;
+    return { tau: FPU_TAU0 + FPU_K_TAU * fpu, n: FPU_N0 / (1 + FPU_K_N * fpu) };
+  }
+  if (entry.absorptionScore != null) return ABSORPTION_PARAMS[entry.absorptionScore] || null;
+  return null;
+}
+
 // Fractie koolhydraten die nog NIET is opgenomen (dus nog "on board") op tMin minuten na eten.
-function cobFraction(tMin, score){
-  const p = ABSORPTION_PARAMS[score];
-  if (!p || tMin <= 0) return 1;
+function cobFractionParams(tMin, params){
+  if (!params || tMin <= 0) return 1;
   if (tMin >= COB_WINDOW_MIN) return 0;
-  const ratio = Math.pow(tMin / p.tau, p.n);
+  const ratio = Math.pow(tMin / params.tau, params.n);
   return 1 / (1 + ratio);
 }
 
 function totalCobAt(targetTime, carbEntries){
   let total = 0;
   carbEntries.forEach(c => {
-    if (c.amount == null || c.absorptionScore == null) return;
+    if (c.amount == null) return;
+    const params = getEffectiveTauN(c);
+    if (!params) return;
     const minsSince = (targetTime - new Date(c.ts).getTime()) / 60000;
-    if (minsSince >= 0 && minsSince < COB_WINDOW_MIN) total += c.amount * cobFraction(minsSince, c.absorptionScore);
+    if (minsSince >= 0 && minsSince < COB_WINDOW_MIN) total += c.amount * cobFractionParams(minsSince, params);
   });
   return total;
 }
 
 // KHD-absorptie = hoe snel COB op dit moment daalt (numerieke afgeleide, zelfde onderliggende curve)
-function khdAbsorptionFraction(tMin, score){
+function khdAbsorptionFractionParams(tMin, params){
   if (tMin < 0 || tMin > COB_WINDOW_MIN) return 0;
   const d = 1; // 1 minuut-stap voor de afgeleide
-  return Math.max(0, (cobFraction(Math.max(0, tMin - d/2), score) - cobFraction(Math.min(COB_WINDOW_MIN, tMin + d/2), score)) / d);
+  return Math.max(0, (cobFractionParams(Math.max(0, tMin - d/2), params) - cobFractionParams(Math.min(COB_WINDOW_MIN, tMin + d/2), params)) / d);
 }
 
 function totalKhdAbsorptionAt(targetTime, carbEntries){
   let total = 0;
   carbEntries.forEach(c => {
-    if (c.amount == null || c.absorptionScore == null) return;
+    if (c.amount == null) return;
+    const params = getEffectiveTauN(c);
+    if (!params) return;
     const minsSince = (targetTime - new Date(c.ts).getTime()) / 60000;
-    if (minsSince >= 0 && minsSince < COB_WINDOW_MIN) total += c.amount * khdAbsorptionFraction(minsSince, c.absorptionScore);
+    if (minsSince >= 0 && minsSince < COB_WINDOW_MIN) total += c.amount * khdAbsorptionFractionParams(minsSince, params);
   });
   return total;
 }
@@ -1375,7 +1413,7 @@ function renderCombinedChart(){
   if (!canvas) return;
   const now = Date.now();
   const boluses = (DATA.foodLogRaw || []).filter(r => r.type === 'bolus' && r.amount != null);
-  const carbEntries = (DATA.foodLogRaw || []).filter(r => r.type === 'khd' && r.amount != null && r.absorptionScore != null);
+  const carbEntries = (DATA.foodLogRaw || []).filter(r => r.type === 'khd' && r.amount != null && (r.absorptionScore != null || (r.fatG != null && r.proteinG != null)));
 
   const stepMin = IOB_STEP_MIN;
   const points = [];
@@ -1925,6 +1963,12 @@ function openRdModal(id){
         '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Verwerking</div>' +
         '<div class="pillRow" id="rdmAbsorptionRow" style="display:flex; gap:6px; flex-wrap:wrap;">' +
           ABSORPTION_TITLES.map((t, i) => '<button type="button" class="dayBtn' + (row.absorptionScore === i ? ' dayBtnActive' : '') + '" data-score="' + i + '" title="' + t + '" onclick="selectRdmAbsorptionScore(' + i + ',this)">' + ABSORPTION_EMOJI[i] + '</button>').join('') +
+        '</div>' +
+        '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Macro\'s (optioneel, overschrijft verwerking-schaal)</div>' +
+        '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
+          '<input id="rdmFat" type="number" step="0.1" value="' + (row.fatG != null ? row.fatG : '') + '" placeholder="vet (g)" style="flex:1; min-width:80px; ' + fieldStyle + '">' +
+          '<input id="rdmProtein" type="number" step="0.1" value="' + (row.proteinG != null ? row.proteinG : '') + '" placeholder="eiwit (g)" style="flex:1; min-width:80px; ' + fieldStyle + '">' +
+          '<input id="rdmCalories" type="number" step="1" value="' + (row.calories != null ? row.calories : '') + '" placeholder="kcal (optioneel)" style="flex:1; min-width:90px; ' + fieldStyle + '">' +
         '</div>'
       : '') +
       '<textarea id="rdmContext" placeholder="Context" style="min-height:54px; ' + fieldStyle + '">' + (row.context||'') + '</textarea>' +
@@ -2115,13 +2159,19 @@ async function saveRdModal(id){
   const bolusTypeEl = document.getElementById('rdmBolusType');
   const bolusType = bolusTypeEl ? bolusTypeEl.value : '';
   const absorptionParam = type === 'khd' ? '&absorptionScore=' + encodeURIComponent(rdmAbsorptionScore != null ? rdmAbsorptionScore : '') : '';
+  const fatEl = document.getElementById('rdmFat');
+  const proteinEl = document.getElementById('rdmProtein');
+  const caloriesEl = document.getElementById('rdmCalories');
+  const macroParams = type === 'khd'
+    ? '&fat=' + encodeURIComponent(fatEl ? fatEl.value : '') + '&protein=' + encodeURIComponent(proteinEl ? proteinEl.value : '') + '&calories=' + encodeURIComponent(caloriesEl ? caloriesEl.value : '')
+    : '';
 
   try {
     const res = await fetch(API_UPDATE + '?key=' + encodeURIComponent(WRITE_KEY) + '&id=' + encodeURIComponent(id) +
       '&desc=' + encodeURIComponent(desc) + '&amount=' + encodeURIComponent(amount) +
       '&tags=' + encodeURIComponent(tags) + '&context=' + encodeURIComponent(context) +
       '&ts=' + encodeURIComponent(ts) + '&type=' + encodeURIComponent(type) +
-      '&bolusType=' + encodeURIComponent(bolusType) + absorptionParam);
+      '&bolusType=' + encodeURIComponent(bolusType) + absorptionParam + macroParams);
     const json = await res.json();
     if (json.status !== 'ok') { alert('Mislukt: ' + (json.message || 'onbekende fout')); return; }
 
