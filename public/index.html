@@ -2024,12 +2024,14 @@ function renderModalChart(row, accent){
   const linkedIds = new Set((row.links||[]).map(l => l.id));
   const hasLinks = linkedIds.size > 0;
 
-  // Verzamelpunten voor de gouden verbindingslijn + gloed (self + alle gekoppelde items die in beeld zijn)
-  const linkedPositions = [];
+  // Verzamelpunten voor de gouden verbindingslijn + gloed (self + alle gekoppelde items die in beeld zijn).
+  // Elk punt bewaart zijn eigen tijdstip + werkelijke (met offset) y-positie, zodat gekoppelde items die
+  // toevallig bij dezelfde dichtstbijzijnde meting horen (idx-botsing) toch als apart punt zichtbaar blijven.
+  const connectorPoints = [];
 
   const selfIdx = nearestIdx(row.ts);
   const selfLinked = hasLinks;
-  if (selfLinked) linkedPositions.push(selfIdx);
+  if (selfLinked) connectorPoints.push({ ts: row.ts, idx: selfIdx, y: values[selfIdx] });
   const selfData = pts.map((g, i) => i === selfIdx ? values[i] : null);
   const selfDescs = pts.map((g, i) => i === selfIdx ? (rdPrimaryLine(row) + ' · ' + fmtTime(row.ts)) : null);
 
@@ -2055,7 +2057,7 @@ function renderModalChart(row, accent){
       descs[idx] = rdPrimaryLine(r) + ' · ' + fmtTime(r.ts) + (isLinked ? ' (gekoppeld)' : '');
       if (isLinked) {
         borderColor[idx] = GOLD; borderWidth[idx] = 2; radius[idx] = 8;
-        linkedPositions.push(idx);
+        connectorPoints.push({ ts: r.ts, idx, y: data[idx] });
       }
     });
     return { data, descs, borderColor, borderWidth, radius };
@@ -2065,23 +2067,30 @@ function renderModalChart(row, accent){
   const khdOther = otherDataset('khd', 0.8);
   const bewegingOther = otherDataset('beweging', 0);
 
-  // Gestippelde lijn tussen alle gekoppelde punten (op hun eigen y-positie)
-  const allDataByIdx = {};
-  linkedPositions.forEach(idx => {
-    if (idx === selfIdx && selfLinked) { allDataByIdx[idx] = values[idx]; return; }
-    [bolusOther, khdOther, bewegingOther].forEach(ds => { if (ds.data[idx] != null) allDataByIdx[idx] = ds.data[idx]; });
-  });
-  const sortedLinkedIdx = [...new Set(linkedPositions)].sort((a,b) => a-b);
-  const connectorData = pts.map((g, i) => allDataByIdx[i] != null ? allDataByIdx[i] : null);
+  // Chronologische volgorde, zodat de stippellijn punten verbindt in de tijd waarin ze plaatsvonden
+  // (ook als twee gekoppelde punten toevallig dezelfde x-positie delen).
+  connectorPoints.sort((a, b) => new Date(a.ts) - new Date(b.ts));
 
-  const glowPoints = sortedLinkedIdx.map(idx => ({ idx, y: allDataByIdx[idx] }));
   const glowPlugin = {
     id: 'goldGlow',
     beforeDatasetsDraw(chart){
       const { ctx, scales } = chart;
       if (!scales.x || !scales.y) return;
-      glowPoints.forEach(p => {
-        if (p.y == null) return;
+      if (connectorPoints.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = GOLD;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        connectorPoints.forEach((p, i) => {
+          const x = scales.x.getPixelForValue(p.idx);
+          const y = scales.y.getPixelForValue(p.y);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        ctx.restore();
+      }
+      connectorPoints.forEach(p => {
         const x = scales.x.getPixelForValue(p.idx);
         const y = scales.y.getPixelForValue(p.y);
         const grad = ctx.createRadialGradient(x, y, 0, x, y, 16);
@@ -2107,7 +2116,6 @@ function renderModalChart(row, accent){
       labels,
       datasets: [
         { data: values, borderColor:'#5dcaa5', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.3, spanGaps:true },
-        { data: connectorData, showLine: sortedLinkedIdx.length > 1, borderColor: GOLD, borderWidth:1.5, borderDash:[5,4], spanGaps:true, pointRadius:0, order:0 },
         { data: bolusOther.data, descs: bolusOther.descs, showLine:false, pointStyle:'triangle', pointRadius: bolusOther.radius, pointBackgroundColor: colorMap.bolus, pointBorderColor: bolusOther.borderColor, pointBorderWidth: bolusOther.borderWidth },
         { data: khdOther.data, descs: khdOther.descs, showLine:false, pointStyle:'rectRot', pointRadius: khdOther.radius, pointBackgroundColor: colorMap.khd, pointBorderColor: khdOther.borderColor, pointBorderWidth: khdOther.borderWidth },
         { data: bewegingOther.data, descs: bewegingOther.descs, showLine:false, pointStyle:'circle', pointRadius: bewegingOther.radius, pointBackgroundColor: colorMap.beweging, pointBorderColor: bewegingOther.borderColor, pointBorderWidth: bewegingOther.borderWidth },
