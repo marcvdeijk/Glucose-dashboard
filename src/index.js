@@ -825,7 +825,11 @@ export default {
       if (!env.READ_KEY || url.searchParams.get('key') !== env.READ_KEY) {
         return jsonOut({ status: 'error', message: 'Toegang geweigerd.' }, 403);
       }
-      return handleData(env, url.searchParams);
+      try {
+        return await handleData(env, url.searchParams);
+      } catch (err) {
+        return jsonOut({ status: 'error', message: 'Data tijdelijk niet beschikbaar: ' + String(err) }, 503);
+      }
     }
 
     if (url.pathname === '/api/log') {
