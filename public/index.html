@@ -1945,7 +1945,7 @@ function openRdModal(id){
       '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
         '<input id="rdmTs" type="datetime-local" value="' + tsLocal + '" style="flex:1; min-width:150px; ' + fieldStyle + '">' +
         '<select id="rdmType" style="' + fieldStyle + '">' +
-          ['khd','bolus','beweging'].map(t => '<option value="' + t + '"' + (t === row.type ? ' selected' : '') + '>' + t + '</option>').join('') +
+          ['khd','bolus','beweging'].map(t => '<option value="' + t + '"' + (t === row.type ? ' selected' : '') + '>' + ({khd:'Voeding',bolus:'Bolus',beweging:'Beweging'}[t]) + '</option>').join('') +
         '</select>' +
         (row.type === 'bolus' ? '<select id="rdmBolusType" style="' + fieldStyle + '">' +
           ['regulier','pre-bolus','correctie','na-bolus'].map(t => '<option value="' + t + '"' + (t === row.bolusType ? ' selected' : '') + '>' + t + '</option>').join('') +
@@ -1955,20 +1955,22 @@ function openRdModal(id){
         '<div id="rdmDesc" class="chipInput" contenteditable="true" data-placeholder="Beschrijving (@tag om te taggen)" style="' + fieldStyle + '">' + rdmDescInnerHtml(row.desc, row.tags, 'tagChip-' + row.type) + '</div>' +
         '<div id="rdmDescAutocomplete" style="display:none; position:absolute; top:100%; left:0; right:0; margin-top:4px; background:rgba(28,28,30,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:0.5px solid rgba(255,255,255,0.14); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:20; max-height:160px; overflow-y:auto;"></div>' +
       '</div>' +
-      '<div style="display:flex; gap:6px;">' +
-        '<input id="rdmAmount" type="number" value="' + (row.amount != null ? row.amount : '') + '" placeholder="Aantal" style="flex:1; ' + fieldStyle + '">' +
-        '<input id="rdmTags" value="' + (row.tags||'').replace(/"/g,'&quot;') + '" placeholder="Tags" readonly style="flex:2; ' + fieldStyle + ' opacity:0.6; cursor:not-allowed;">' +
-      '</div>' +
+      (row.type !== 'khd' ?
+        '<div style="display:flex; gap:6px;">' +
+          '<input id="rdmAmount" type="number" value="' + (row.amount != null ? row.amount : '') + '" placeholder="Aantal" style="flex:1; ' + fieldStyle + '">' +
+        '</div>'
+      : '') +
       (row.type === 'khd' ?
         '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Verwerking</div>' +
         '<div class="pillRow" id="rdmAbsorptionRow" style="display:flex; gap:6px; flex-wrap:wrap;">' +
           ABSORPTION_TITLES.map((t, i) => '<button type="button" class="dayBtn' + (row.absorptionScore === i ? ' dayBtnActive' : '') + '" data-score="' + i + '" title="' + t + '" onclick="selectRdmAbsorptionScore(' + i + ',this)">' + ABSORPTION_EMOJI[i] + '</button>').join('') +
         '</div>' +
-        '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Macro\'s (optioneel, overschrijft verwerking-schaal)</div>' +
+        '<div style="font-size:11px; font-weight:600; color:#8a8a86; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Macro\'s</div>' +
         '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
-          '<input id="rdmFat" type="number" step="0.1" value="' + (row.fatG != null ? row.fatG : '') + '" placeholder="vet (g)" style="flex:1; min-width:80px; ' + fieldStyle + '">' +
-          '<input id="rdmProtein" type="number" step="0.1" value="' + (row.proteinG != null ? row.proteinG : '') + '" placeholder="eiwit (g)" style="flex:1; min-width:80px; ' + fieldStyle + '">' +
-          '<input id="rdmCalories" type="number" step="1" value="' + (row.calories != null ? row.calories : '') + '" placeholder="kcal (optioneel)" style="flex:1; min-width:90px; ' + fieldStyle + '">' +
+          '<div style="flex:1; min-width:70px;"><label style="display:block; font-size:10px; color:#8a8a86; margin-bottom:2px;">KHD (g)</label><input id="rdmAmount" type="number" value="' + (row.amount != null ? row.amount : '') + '" style="width:100%; box-sizing:border-box; ' + fieldStyle + '"></div>' +
+          '<div style="flex:1; min-width:70px;"><label style="display:block; font-size:10px; color:#8a8a86; margin-bottom:2px;">Eiwit (g)</label><input id="rdmProtein" type="number" step="0.1" value="' + (row.proteinG != null ? row.proteinG : '') + '" style="width:100%; box-sizing:border-box; ' + fieldStyle + '"></div>' +
+          '<div style="flex:1; min-width:70px;"><label style="display:block; font-size:10px; color:#8a8a86; margin-bottom:2px;">Vet (g)</label><input id="rdmFat" type="number" step="0.1" value="' + (row.fatG != null ? row.fatG : '') + '" style="width:100%; box-sizing:border-box; ' + fieldStyle + '"></div>' +
+          '<div style="flex:1; min-width:70px;"><label style="display:block; font-size:10px; color:#8a8a86; margin-bottom:2px;">Kcal</label><input id="rdmCalories" type="number" step="1" value="' + (row.calories != null ? row.calories : '') + '" style="width:100%; box-sizing:border-box; ' + fieldStyle + '"></div>' +
         '</div>'
       : '') +
       '<textarea id="rdmContext" placeholder="Context" style="min-height:54px; ' + fieldStyle + '">' + (row.context||'') + '</textarea>' +
@@ -1990,12 +1992,7 @@ function openRdModal(id){
   const rdmColorClass = 'tagChip-' + row.type;
   attachTagAutocomplete('rdmDesc', rdmColorClass);
   const rdmDescEl = document.getElementById('rdmDesc');
-  const rdmTagsEl = document.getElementById('rdmTags');
-  if (rdmDescEl && rdmTagsEl) {
-    rdmDescEl.addEventListener('input', () => {
-      rdmTagsEl.value = getChipInputContent('rdmDesc').tags.join(',');
-    });
-  }
+  // (tags-sync verwijderd samen met het losse Tags-veld; saveRdModal leest tags al rechtstreeks uit rdmDesc)
 }
 
 function closeRdModal(){
