@@ -1296,7 +1296,11 @@ const FPU_K_N = 0.53;
 function getEffectiveTauN(entry){
   if (entry.fatG != null && entry.proteinG != null) {
     const fpu = (entry.fatG * 9 + entry.proteinG * 4) / 100;
-    return { tau: FPU_TAU0 + FPU_K_TAU * fpu, n: FPU_N0 / (1 + FPU_K_N * fpu) };
+    const tauRaw = FPU_TAU0 + FPU_K_TAU * fpu;
+    const nRaw = FPU_N0 / (1 + FPU_K_N * fpu);
+    // Klem binnen de envelop van de traagste vaste categorie (score 5, "Zeer traag"),
+    // zodat extreme FPU-waarden nooit een fysiologisch onrealistische curve opleveren.
+    return { tau: Math.min(tauRaw, ABSORPTION_PARAMS[5].tau), n: Math.max(nRaw, ABSORPTION_PARAMS[5].n) };
   }
   if (entry.absorptionScore != null) return ABSORPTION_PARAMS[entry.absorptionScore] || null;
   return null;
