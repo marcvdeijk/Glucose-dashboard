@@ -1778,7 +1778,7 @@ function renderRuweData(){
 
   ruweRows = (DATA.foodLogRaw||[]).map(r => ({
     id: r.id, ts: r.ts, type: r.type || 'khd', desc: r.desc, amount: r.amount, tags: r.tags, context: r.context,
-    bolusType: r.bolusType || '', bgAtEntry: r.bgAtEntry, absorptionScore: r.absorptionScore != null ? r.absorptionScore : null, links: r.links || []
+    bolusType: r.bolusType || '', bgAtEntry: r.bgAtEntry, absorptionScore: r.absorptionScore != null ? r.absorptionScore : null, links: r.links || [], fatG: r.fatG, proteinG: r.proteinG, calories: r.calories
   }));
 
   let rows = ruweRows;
