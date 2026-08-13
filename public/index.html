@@ -1450,10 +1450,10 @@ function renderCombinedChart(){
   const showKhdAbs = document.getElementById('combChkKhdAbs').checked;
 
   const datasets = [];
-  if (showIob) datasets.push({ label:'IOB', data: norm(iobVals), borderColor:'#7f77dd', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
-  if (showCob) datasets.push({ label:'COB', data: norm(cobVals), borderColor:'#d85a30', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
-  if (showAct) datasets.push({ label:'Insuline-activiteit', data: norm(actVals), borderColor:'#a89af0', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
-  if (showKhdAbs) datasets.push({ label:'KHD-absorptie', data: norm(khdAbsVals), borderColor:'#f0a85a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
+  if (showIob) datasets.push({ label:'IOB', data: norm(iobVals), raw: iobVals.map(v => v.toFixed(1) + 'E'), borderColor:'#7f77dd', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
+  if (showCob) datasets.push({ label:'COB', data: norm(cobVals), raw: cobVals.map(v => Math.round(v) + 'g'), borderColor:'#d85a30', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8 });
+  if (showAct) datasets.push({ label:'Insuline-activiteit', data: norm(actVals), raw: actVals.map(v => (v * 60).toFixed(2) + 'E/u'), borderColor:'#a89af0', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
+  if (showKhdAbs) datasets.push({ label:'KHD-absorptie', data: norm(khdAbsVals), raw: khdAbsVals.map(v => (v * 60).toFixed(1) + 'g/u'), borderColor:'#f0a85a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.35, pointHitRadius:8, borderDash:[4,3] });
   datasets.push({ data: bolusMarkerObj.data, descs: bolusMarkerObj.descs, showLine:false, pointStyle:'triangle', pointRadius:6, pointBackgroundColor:'#7f77dd', pointBorderColor:'#fff', pointBorderWidth:1 });
 
   renderCombinedWindowToggle();
@@ -1496,7 +1496,12 @@ function renderCombinedChart(){
           titleColor: '#e4e4e0',
           callbacks: {
             title: (items) => items[0] ? items[0].label : '',
-            label: (item) => item.dataset.descs ? 'Bolus: ' + item.dataset.descs[item.dataIndex] : (item.dataset.label ? item.dataset.label + ': ' + item.formattedValue + '%' : null)
+            label: (item) => {
+              const ds = item.dataset;
+              if (ds.descs) return 'Bolus: ' + ds.descs[item.dataIndex];
+              if (ds.raw) return ds.label + ': ' + ds.raw[item.dataIndex];
+              return ds.label ? ds.label + ': ' + item.formattedValue + '%' : null;
+            }
           }
         }
       },
